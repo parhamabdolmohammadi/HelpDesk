@@ -12,7 +12,9 @@
     "cors": "^2.8.5",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "better-auth": "^1.7.5",
+    "@better-auth/prisma-adapter": "^1.7.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
@@ -21,6 +23,7 @@
     "@types/bun": "latest",
     "typescript": "~6.0.2",
     "prisma": "^7.10.0",
-    "dotenv": "^17.0.0"
+    "dotenv": "^17.0.0",
+    "@better-auth/cli": "^1.4.21"
   }
 }
