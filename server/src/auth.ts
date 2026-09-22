@@ -10,7 +10,7 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     disableSignUp: true,
   },
-  trustedOrigins: ['http://localhost:5173'],
+  trustedOrigins: [process.env.TRUSTED_ORIGINS ?? 'http://localhost:5173'],
   user: {
     additionalFields: {
       role: {
