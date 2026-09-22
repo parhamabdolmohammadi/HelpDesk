@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "seed": "bun src/seed.ts"
   },
   "dependencies": {
     "express": "^5.1.0",
