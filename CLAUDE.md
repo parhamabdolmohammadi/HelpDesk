@@ -34,6 +34,36 @@ bun run dev
 Starts the Vite dev server (http://localhost:5173, or next free port).
 Requests to `/api/*` are proxied to the server on port 4000.
 
+## Database
+
+Local PostgreSQL 17 (Windows service `postgresql-x64-17`), database `helpdesk`,
+accessed via a dedicated `helpdesk_app` role (not the `postgres` superuser) with
+`CREATEDB` granted so Prisma Migrate can manage its shadow database.
+
+Prisma is pinned to `^7.10.0` in `server/package.json` — **do not install
+`prisma@latest`**, since at the time this was set up the `latest` npm dist-tag
+pointed at an `8.0.0-rc.*` release candidate with a different `prisma init`
+behavior (no schema scaffolding) and CLI flags. Check `npm view prisma
+dist-tags` before ever bumping this.
+
+Config/schema layout (Prisma ORM 7, which requires a config file and a custom
+client output path — see https://pris.ly/getting-started):
+- `server/prisma7.config.ts` — Prisma CLI config (schema/migrations paths,
+  `DATABASE_URL`)
+- `server/prisma/schema.prisma` — models, generator outputs the client to
+  `server/src/generated/prisma`
+- `server/src/db.ts` — the app's `PrismaClient` singleton, using the
+  `@prisma/adapter-pg` driver adapter (required in Prisma 7's new client)
+- `server/.env` — holds `DATABASE_URL`; must live in `server/`, not the repo
+  root, since Bun (and Prisma when run via Bun) only auto-loads `.env` from
+  the current working directory, not parent directories
+
+After changing `prisma/schema.prisma`, from `server/`:
+```
+bunx prisma migrate dev --name <description>
+bunx prisma generate
+```
+
 ## Known issue: no lockfile
 
 `bun install` on this machine fails when writing `bun.lock`/`bun.lockb`

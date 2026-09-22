@@ -1,4 +1,4 @@
-# Implementation Plan
+# Implementation Pln
 
 Assumptions made where `project-scope.md` still has open questions (flagged inline
 with ⚠️). Revisit these once those questions are answered — some tasks may change.
