@@ -116,6 +116,28 @@ password with `hashPassword` from `better-auth/crypto` directly, so the
 resulting hash is verifiable by Better Auth's own sign-in flow, and
 creates the `Account` row with `providerId: "credential"`.
 
+## Authorization
+
+Role (`ADMIN` | `AGENT`) is enforced separately on the client and server —
+neither alone is sufficient, and new admin-only features need both:
+
+- **Client:** `client/src/components/ProtectedRoute.tsx` takes an
+  `adminOnly` prop; when set, it redirects to `/` unless
+  `session.user.role === "ADMIN"`. This is a UX guard only, not a security
+  boundary — it can be bypassed by calling the API directly.
+- **Server:** `server/src/middleware/requireRole.ts` exports
+  `requireRole(role)`, meant to compose after `requireAuth` on any
+  admin-only route (`requireAuth` alone only checks "is logged in", not
+  role). As of this writing it isn't applied anywhere yet because no
+  admin-only API route exists — apply it to the first one that's added
+  (e.g. a future `/api/users`), don't ship it guarded only by
+  `ProtectedRoute`.
+- `client/src/lib/auth-client.ts` uses Better Auth's `inferAdditionalFields`
+  client plugin (manually specified, not inferred from a shared server
+  type, since client/server are separate packages) so `session.user.role`
+  is typed. Without it, `role` isn't visible on the client's session type
+  even though the server sends it.
+
 ## UI
 
 `client/` uses shadcn/ui (style `radix-nova`, `neutral` base color — the
@@ -138,6 +160,54 @@ just use `register()` from react-hook-form directly with the raw
 To add more components: `npx shadcn@latest add <component>`. This calls
 `bun add` internally without `--no-save`, so it hits the lockfile bug below —
 see that section's workaround.
+
+## Security middleware
+
+All applied in `server/src/index.ts`, before the Better Auth handler and
+routes:
+
+- `helmet()` — sets standard security headers on every response. Its
+  bundled types don't match Express 5's `RequestHandler` type (same
+  mismatch as Better Auth's `toNodeHandler`), so it's cast with `as
+  unknown as express.RequestHandler` — a known type-only issue, not a
+  runtime problem.
+- `cors({ origin: trustedOrigins, credentials: true })` —
+  `server/src/trustedOrigins.ts` is the single source of truth for the
+  allowed origin list (from `TRUSTED_ORIGINS`, defaulting to
+  `http://localhost:5173`), imported by both this and
+  `server/src/auth.ts`'s `trustedOrigins` config so they can't drift out
+  of sync. `credentials: true` is required for the session cookie to be
+  sent cross-origin (client on 5173, API on 4000 in dev).
+- `express-rate-limit`, scoped to `/api/auth/sign-in/email` only (10
+  requests / 15 min) — not the whole `/api/auth/*` namespace, since that
+  also covers frequent, non-brute-forceable calls like session checks and
+  sign-out. **Only registered when `process.env.NODE_ENV === 'production'`**
+  (set by the `start` script) — it's off for `bun run dev` and for the
+  Playwright test server (see Testing below) so local development and
+  tests are never throttled.
+
+## Testing
+
+End-to-end tests use [Playwright](https://playwright.dev/), configured
+(`playwright.config.ts` at the repo root) but with no specs written yet —
+`e2e/` is currently empty. Key design point: tests run against a
+**separate `helpdesk_test` database**, never the dev database, via
+`server/.env.test` (gitignored like `.env`; `server/.env.test.example`
+documents the keys). Playwright's `webServer` starts a dedicated server
+(port `4100`, `bun --env-file=.env.test run src/index.ts`) and client
+(port `5174`) — deliberately different from the normal dev ports
+(`4000`/`5173`) so a running dev session never conflicts with a test run.
+`client/vite.config.ts`'s API proxy target is
+`process.env.VITE_SERVER_URL ?? 'http://localhost:4000'` specifically so
+Playwright can redirect the client's proxy to the test server on `4100`.
+
+From `server/`: `bun run migrate:test` / `bun run seed:test` (via the
+`dotenv-cli` dev dependency) apply migrations / seed the test database —
+re-run `migrate:test` whenever `prisma/schema.prisma` changes. Note:
+plain `bun --env-file=... x prisma ...` does **not** reliably propagate
+the env file to the child `prisma` process spawned by `bun x` — this is
+why `dotenv-cli` is used for these scripts instead of Bun's own
+`--env-file` flag. From the repo root: `bun run test:e2e` runs the suite.
 
 ## Known issue: no lockfile
 

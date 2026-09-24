@@ -14,14 +14,16 @@ const port = process.env.PORT ?? 4000
 app.use(helmet() as unknown as express.RequestHandler)
 app.use(cors({ origin: trustedOrigins, credentials: true }))
 
-const signInLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-})
+if (process.env.NODE_ENV === 'production') {
+  const signInLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
 
-app.use('/api/auth/sign-in/email', signInLimiter)
+  app.use('/api/auth/sign-in/email', signInLimiter)
+}
 
 app.all('/api/auth/*splat', toNodeHandler(auth) as unknown as express.RequestHandler)
 

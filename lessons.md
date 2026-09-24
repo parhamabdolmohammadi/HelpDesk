@@ -120,3 +120,15 @@ security vulnerabilities.)
 - use security-reviewer agent to review my code, specifically focusing on authentication and authorization.
 
 - use helmet and corst for trusted origins if you havent also apply ratelimiter for authentication
+
+
+
+16- Setting Up PlayWright
+
+- Set Up PlayWright with seperate database for testing dont write any testsjust do the setup and configuration.
+
+-The seed script for admin user is not executed(for course not me)
+
+- enable only rate limiting in production environment
+
+- update project memory

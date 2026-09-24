@@ -21,6 +21,8 @@ yet — see `implementation-plan.md` for what's next.
 - **Database:** PostgreSQL, accessed via Prisma
 - **Auth:** [Better Auth](https://www.better-auth.com/), database-backed
   sessions (HTTP-only cookie + server-side session table)
+- **E2E testing:** [Playwright](https://playwright.dev/), against a
+  separate `helpdesk_test` database (see [Testing](#testing))
 
 ## Project structure
 
@@ -56,7 +58,9 @@ server/   Express API + Prisma schema/migrations
   an `express-rate-limit` limiter (10 requests / 15 min) scoped to
   `/api/auth/sign-in/email` only — not the whole `/api/auth/*` namespace,
   since that also covers frequent, non-brute-forceable calls like session
-  checks and sign-out
+  checks and sign-out. The limiter is only registered when
+  `NODE_ENV=production` (set by the `start` script), so it's off during
+  `bun run dev` and doesn't interfere with local testing
 - `server/src/trustedOrigins.ts` — the single source of truth for allowed
   origins (`TRUSTED_ORIGINS` env var, defaulting to
   `http://localhost:5173`), imported by both `auth.ts` (Better Auth's
@@ -64,6 +68,12 @@ server/   Express API + Prisma schema/migrations
   drift out of sync
 - `server/prisma/schema.prisma` — data model (`User`, `Ticket`, plus Better
   Auth's `Session`/`Account`/`Verification`)
+- `playwright.config.ts` (repo root) — starts the server (port `4100`) and
+  client (port `5174`) against the separate test database before running
+  specs in `e2e/`; see [Testing](#testing)
+- `client/vite.config.ts` — the dev proxy target is
+  `process.env.VITE_SERVER_URL ?? 'http://localhost:4000'`, so Playwright
+  can redirect it to the test server on `4100` without touching normal dev
 
 ## Prerequisites
 
@@ -112,6 +122,40 @@ cd client && bun run dev   # http://localhost:5173 (or next free port)
 
 The client's Vite dev server proxies `/api/*` requests to the Express
 server, so the frontend never needs to know the backend's port directly.
+
+## Testing
+
+End-to-end tests run with [Playwright](https://playwright.dev/) against a
+separate `helpdesk_test` database, so they never touch dev data. Specs live
+in `e2e/` (empty for now — no tests have been written yet, just the setup).
+
+**One-time setup**, from the repo root:
+
+1. Create the `helpdesk_test` database (same Postgres server, same
+   `helpdesk_app` role as the main `helpdesk` database).
+2. Create `server/.env.test` (see `server/.env.test.example` for the
+   required keys) — same `DATABASE_URL` as `server/.env` but pointing at
+   `helpdesk_test`, plus its own `BETTER_AUTH_SECRET`, and
+   `BETTER_AUTH_URL`/`PORT`/`TRUSTED_ORIGINS` set to the test ports below.
+3. Install Playwright's browser binaries:
+   ```
+   bunx playwright install
+   ```
+4. Apply migrations and seed the test database, from `server/`:
+   ```
+   bun run migrate:test
+   bun run seed:test
+   ```
+
+**Running tests:**
+```
+bun run test:e2e
+```
+`playwright.config.ts` starts its own server (`http://localhost:4100`,
+using `server/.env.test`) and client (`http://localhost:5174`) — separate
+ports from normal dev (`4000`/`5173`) so a running dev session never
+conflicts with a test run, and tests never run against dev data. Re-run
+`bun run migrate:test` in `server/` whenever `prisma/schema.prisma` changes.
 
 ## Known issues
 
