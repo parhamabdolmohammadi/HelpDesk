@@ -69,3 +69,12 @@ hardcoded trustedorigin with an environment
 - Update the project memory
 
 - add necessary details about athentication in claude.md
+
+12. Implementing Role Based Access
+
+- create a page at /users with just a heading. make it accessible only to admins
+
+- add a link to the users page in nav for admins
+
+- create an agent user
+  email: agent@example.com password: password123
