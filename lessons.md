@@ -166,3 +166,11 @@ security vulnerabilities.)
 
 - Build the user List feature. build both the frontend and backend. This feature should be only accessible to admin
 
+3 - Using React query 
+
+- Replace fetch with axios
+
+- Use Tanktack query
+
+-add an instrution to claude.md to use axios and react query
+

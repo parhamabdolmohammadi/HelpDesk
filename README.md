@@ -16,7 +16,8 @@ integration are not built yet — see `implementation-plan.md` for what's next.
 ## Tech stack
 
 - **Frontend:** React + TypeScript (Vite), React Router, Tailwind CSS,
-  shadcn/ui (Radix + Nova preset, default/neutral theme), React Hook Form + Zod
+  shadcn/ui (Radix + Nova preset, default/neutral theme), React Hook Form + Zod,
+  TanStack Query + Axios (for API calls other than Better Auth's own client)
 - **Backend:** Express + TypeScript, run directly by Bun
 - **Database:** PostgreSQL, accessed via Prisma
 - **Auth:** [Better Auth](https://www.better-auth.com/), database-backed
@@ -33,8 +34,12 @@ server/   Express API + Prisma schema/migrations
 
 - `client/src/pages/` — routed pages (`Login` — built with shadcn/ui's
   `Card`/`Input`/`Label`/`Button`/`Alert`, wired to the existing
-  react-hook-form + Zod validation; `Home`; `Users` — admin-only, fetches
-  `GET /api/users` and renders name/email/role/created-date in a table)
+  react-hook-form + Zod validation; `Home`; `Users` — admin-only, loads
+  `GET /api/users` (Axios, inside a TanStack Query `useQuery`) and renders
+  name/email/role/created-date in a table)
+- `client/src/App.tsx` — wraps the router in a `QueryClientProvider`, with
+  the `QueryClient` instance held in `useState(() => new QueryClient())` so
+  it's created once and stays stable across re-renders
 - `client/src/components/` — shared UI (`NavBar`, `ProtectedRoute` — takes an
   `adminOnly` prop that redirects non-admins to `/`, using the `role` field
   Better Auth exposes on `session.user` via the client's `inferAdditionalFields`

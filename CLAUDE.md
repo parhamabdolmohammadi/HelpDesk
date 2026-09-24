@@ -161,6 +161,33 @@ To add more components: `npx shadcn@latest add <component>`. This calls
 `bun add` internally without `--no-save`, so it hits the lockfile bug below —
 see that section's workaround.
 
+## Data fetching
+
+Client-side calls to this project's own API (anything other than Better
+Auth's own client, see `auth-client.ts` above) use **Axios** for the HTTP
+call and **TanStack Query** (`useQuery`/`useMutation`) for the async state
+around it — not raw `fetch` and not manual `useEffect`/`useState` loading
+state. New pages that load data from `/api/*` should follow the pattern in
+`client/src/pages/Users.tsx`:
+
+```ts
+const { data, isPending, isError } = useQuery({
+  queryKey: ['users'],
+  queryFn: async () => {
+    const response = await axios.get('/api/users', { withCredentials: true })
+    return response.data.users
+  },
+})
+```
+
+- `client/src/App.tsx` wraps the router in a `QueryClientProvider`, with the
+  `QueryClient` created once via `useState(() => new QueryClient())` so it's
+  stable across re-renders — reuse that existing provider/client rather than
+  creating a new one per page.
+- Axios calls need `withCredentials: true` to send the session cookie, same
+  reason `cors()` on the server needs `credentials: true` (see Security
+  middleware below).
+
 ## Security middleware
 
 All applied in `server/src/index.ts`, before the Better Auth handler and

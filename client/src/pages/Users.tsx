@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { NavBar } from '../components/NavBar'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
@@ -13,32 +14,19 @@ type UserListItem = {
 }
 
 export function Users() {
-  const [users, setUsers] = useState<UserListItem[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const loadUsers = async () => {
-      const response = await fetch('/api/users', { credentials: 'include' })
-
-      if (!response.ok) {
-        if (!cancelled) setError('Failed to load users')
-        return
-      }
-
-      const data = (await response.json()) as { users: UserListItem[] }
-      if (!cancelled) setUsers(data.users)
-    }
-
-    loadUsers().catch(() => {
-      if (!cancelled) setError('Failed to load users')
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const {
+    data: users,
+    isPending,
+    isError,
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await axios.get<{ users: UserListItem[] }>('/api/users', {
+        withCredentials: true,
+      })
+      return response.data.users
+    },
+  })
 
   return (
     <div>
@@ -47,15 +35,17 @@ export function Users() {
         <h1 className="text-xl font-semibold text-gray-900">Users</h1>
 
         <div className="mt-4">
-          {error && (
+          {isError && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>Failed to load users</AlertDescription>
             </Alert>
           )}
 
-          {!error && !users && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {!isError && isPending && (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          )}
 
-          {!error && users && (
+          {!isError && users && (
             <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
