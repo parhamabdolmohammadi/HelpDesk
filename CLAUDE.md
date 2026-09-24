@@ -188,26 +188,21 @@ routes:
 
 ## Testing
 
-End-to-end tests use [Playwright](https://playwright.dev/), configured
-(`playwright.config.ts` at the repo root) but with no specs written yet —
-`e2e/` is currently empty. Key design point: tests run against a
-**separate `helpdesk_test` database**, never the dev database, via
-`server/.env.test` (gitignored like `.env`; `server/.env.test.example`
-documents the keys). Playwright's `webServer` starts a dedicated server
-(port `4100`, `bun --env-file=.env.test run src/index.ts`) and client
-(port `5174`) — deliberately different from the normal dev ports
-(`4000`/`5173`) so a running dev session never conflicts with a test run.
-`client/vite.config.ts`'s API proxy target is
-`process.env.VITE_SERVER_URL ?? 'http://localhost:4000'` specifically so
-Playwright can redirect the client's proxy to the test server on `4100`.
+End-to-end tests use [Playwright](https://playwright.dev/)
+(`playwright.config.ts` at the repo root, specs in `e2e/`). For the test
+infrastructure — the separate `helpdesk_test` database, dedicated test
+ports, and how to write/run specs — see the `e2e-test-writer` subagent
+(`.claude/agents/e2e-test-writer.md`), which owns this project's E2E
+testing conventions.
 
-From `server/`: `bun run migrate:test` / `bun run seed:test` (via the
-`dotenv-cli` dev dependency) apply migrations / seed the test database —
-re-run `migrate:test` whenever `prisma/schema.prisma` changes. Note:
-plain `bun --env-file=... x prisma ...` does **not** reliably propagate
-the env file to the child `prisma` process spawned by `bun x` — this is
-why `dotenv-cli` is used for these scripts instead of Bun's own
-`--env-file` flag. From the repo root: `bun run test:e2e` runs the suite.
+**Use the `e2e-test-writer` subagent for any task that involves writing,
+updating, or extending E2E specs** (new `e2e/*.spec.ts` files, testing a
+new user flow, updating a spec after a UI/route change) instead of writing
+Playwright tests directly — it has this project's test-infrastructure and
+app-specific conventions loaded so tests come out consistent. Writing or
+touching `playwright.config.ts` itself, or one-off manual verification
+(e.g. spinning up the test server to sanity-check something), doesn't need
+the subagent.
 
 ## Known issue: no lockfile
 

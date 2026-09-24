@@ -88,7 +88,7 @@ Description:
 Review the codebase for
 security vulnerabilities
 
--have access to all tolls
+-have access to all tools
 
 - use the same model
 
@@ -132,3 +132,22 @@ security vulnerabilities.)
 - enable only rate limiting in production environment
 
 - update project memory
+
+18 - Creating a testing agent
+
+(- Create a n agent and add it to this project and generate it with claude
+
+  Description:
+  Write E2E Tests Using PlayWright
+
+  -have access to all tools
+
+  -use the same model
+
+  -color: Purple
+
+  -name: e2e test writer
+
+  move the testing instructions from claude.md to e2e-test-writer)
+
+- update claude.md add instructions for using e2e-test-writer for writing tests
