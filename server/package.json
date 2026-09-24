@@ -19,7 +19,9 @@
     "@prisma/client": "^7.10.0",
     "pg": "^8.16.0",
     "better-auth": "^1.7.5",
-    "@better-auth/prisma-adapter": "^1.7.5"
+    "@better-auth/prisma-adapter": "^1.7.5",
+    "zod": "^4.6.5",
+    "core": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

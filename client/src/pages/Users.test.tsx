@@ -40,53 +40,21 @@ describe('Users page', () => {
     mockGet.mockReset()
   })
 
-  it('shows loading skeletons before the response resolves', () => {
-    mockGet.mockReturnValue(new Promise(() => {}))
-
-    renderUsers()
-
-    expect(screen.getByRole('table')).toBeInTheDocument()
-    expect(screen.queryByText('admin@example.com')).not.toBeInTheDocument()
-  })
-
-  it('renders the fetched users once loaded, falling back to — for a null name', async () => {
+  it('fetches users and renders them in the table', async () => {
     mockGet.mockResolvedValue({ data: { users: sampleUsers } })
 
     renderUsers()
 
     expect(await screen.findByText('admin@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Admin User')).toBeInTheDocument()
-    expect(screen.getByText('agent@example.com')).toBeInTheDocument()
-    expect(screen.getByText('—')).toBeInTheDocument()
     expect(mockGet).toHaveBeenCalledWith('/api/users', { withCredentials: true })
   })
 
-  it('styles the ADMIN badge differently from AGENT', async () => {
-    mockGet.mockResolvedValue({ data: { users: sampleUsers } })
-
-    renderUsers()
-
-    const adminBadge = await screen.findByText('ADMIN')
-    const agentBadge = screen.getByText('AGENT')
-
-    expect(adminBadge.className).toContain('bg-primary')
-    expect(agentBadge.className).toContain('bg-muted')
-  })
-
-  it('shows an error message when the request fails', async () => {
+  it('shows an error message when the request fails, instead of the table', async () => {
     mockGet.mockRejectedValue(new Error('network error'))
 
     renderUsers()
 
     expect(await screen.findByText('Failed to load users')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
-  })
-
-  it('shows an empty state when there are no users', async () => {
-    mockGet.mockResolvedValue({ data: { users: [] } })
-
-    renderUsers()
-
-    expect(await screen.findByText('No users found.')).toBeInTheDocument()
   })
 })

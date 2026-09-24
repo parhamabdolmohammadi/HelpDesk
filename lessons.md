@@ -189,3 +189,37 @@ security vulnerabilities.)
 - run all component tests
 
 -add a command to client package.json to run component tests
+
+- add the ability to create new users.
+
+6 - Creating Users
+
+(-add a button above the user list for creating
+new users. when clicked, show a modal with 3
+input fields: name, email and password.
+Ensure the form is valid:
+
+name: min 3 chars
+password: min 8 chars
+
+when the form is submitted, create the user
+in the database and hide the modal.)
+
+7 - Reviewing the backend
+
+- use zod for data validation mention that in claude.md
+
+-  Try catch in express in unnecessary because it can automaticlly candle rejected promise clean the code and mention in claude.md
+
+-(where role is defined when creating user?
+
+  and if you havent used enum for user role creating make sure you do it mention it in claude.md
+
+  also all user related endpoints should be refactored)  
+
+8 - Reviewing The frontend
+
+- CreateUserschema already exists on the server extract that into a separate module in both client and server. update claude.md and add an instruction for defining zod schemas in the core package and referencing them in both client and server.
+
+- create a users table component and refactor from users page
+

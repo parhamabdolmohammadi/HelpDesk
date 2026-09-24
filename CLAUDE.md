@@ -17,7 +17,27 @@ stack change quickly.
 
 - `client/` — React + TypeScript, built with Vite
 - `server/` — Express + TypeScript, run directly by Bun (no separate build step)
-- Root `package.json` defines a Bun workspace over `client` and `server`
+  - `server/src/index.ts` — creates the `app`, registers global middleware
+    (helmet/cors/rate-limit/Better Auth/`express.json`/the error handler),
+    and mounts each resource's router. It does not define resource routes
+    itself.
+  - `server/src/routes/` — one file per API resource, each exporting an
+    Express `Router` mounted in `index.ts` (e.g. `users.ts` → `usersRouter`,
+    mounted at `app.use('/api/users', usersRouter)`). A resource's request
+    schema, if shared with the client, is imported from `core/` (see Data
+    validation below) rather than redefined here; middleware composition
+    for the whole resource (e.g. `usersRouter.use(requireAuth,
+    requireRole('ADMIN'))`) lives in its route file, not in `index.ts`. New
+    endpoints for an existing resource (e.g. `PATCH`/`DELETE` on a user) go
+    in that resource's existing route file; a genuinely new resource gets
+    its own new file here.
+- `core/` — plain TypeScript, no build step (both `client` and `server`
+  import its `.ts` source directly as a workspace package named `core`).
+  Holds code shared between `client` and `server` — currently just Zod
+  schemas in `core/src/schemas/`, re-exported from `core/src/index.ts` (see
+  Data validation below). Not for anything client-only or server-only.
+- Root `package.json` defines a Bun workspace over `client`, `server`, and
+  `core`
 
 ## Running the apps
 
@@ -128,15 +148,23 @@ neither alone is sufficient, and new admin-only features need both:
 - **Server:** `server/src/middleware/requireRole.ts` exports
   `requireRole(role)`, meant to compose after `requireAuth` on any
   admin-only route (`requireAuth` alone only checks "is logged in", not
-  role). As of this writing it isn't applied anywhere yet because no
-  admin-only API route exists — apply it to the first one that's added
-  (e.g. a future `/api/users`), don't ship it guarded only by
-  `ProtectedRoute`.
+  role). Applied to the whole `usersRouter` in `server/src/routes/users.ts`
+  (`usersRouter.use(requireAuth, requireRole('ADMIN'))`) — every route on
+  that router is admin-only by construction, so a new route added to it
+  doesn't need to remember to add the guard itself. Don't ship a new
+  admin-only route guarded only by `ProtectedRoute`.
 - `client/src/lib/auth-client.ts` uses Better Auth's `inferAdditionalFields`
   client plugin (manually specified, not inferred from a shared server
   type, since client/server are separate packages) so `session.user.role`
   is typed. Without it, `role` isn't visible on the client's session type
   even though the server sends it.
+- `role` is always the `UserRole` enum from
+  `server/src/generated/prisma/client.ts` (`UserRole.ADMIN` /
+  `UserRole.AGENT`), never a raw string, anywhere a `User` row is created
+  or compared server-side — see `usersRouter`'s `POST /` (explicitly passes
+  `role: UserRole.AGENT`, rather than silently relying on the Prisma
+  schema's `@default(AGENT)`) and `seed.ts`, which follows the same
+  pattern.
 
 ## UI
 
@@ -187,6 +215,75 @@ const { data, isPending, isError } = useQuery({
 - Axios calls need `withCredentials: true` to send the session cookie, same
   reason `cors()` on the server needs `credentials: true` (see Security
   middleware below).
+
+## Data validation
+
+Both client and server validate with **Zod** — not manual type/length checks
+inline in a route handler. Use `z.object({...}).safeParse(...)` and return
+its first issue's message, rather than hand-rolled `typeof`/regex checks.
+
+**Define the schema once, in `core/`, and import it from both sides** —
+don't redeclare the same shape separately in `client/` and `server/`, since
+they'd silently drift out of sync. `core/src/schemas/` holds one file per
+form/request shape (e.g. `core/src/schemas/user.ts` exports
+`createUserSchema` and its inferred `CreateUserInput` type), re-exported
+from `core/src/index.ts`. Both `client/package.json` and
+`server/package.json` depend on it as `"core": "workspace:*"` (a Bun
+workspace — see Structure above), so either side imports it as a normal
+package: `import { createUserSchema } from 'core'`. A schema used by only
+one side (e.g. a client-only UI-state shape with no server counterpart)
+doesn't need to move to `core` — this is specifically for shapes validated
+on both ends, like an API request body that's also a form.
+
+- **Client:** form input, via `react-hook-form`'s `zodResolver` passed a
+  `core` schema — see `client/src/pages/Login.tsx` (a login-only shape, not
+  shared, so defined locally) and `client/src/components/CreateUserModal.tsx`
+  (imports `createUserSchema` from `core`).
+- **Server:** request bodies, via `schema.safeParse(req.body)` using the
+  same imported schema, returning the first issue's message on `400` — see
+  `usersRouter`'s `POST /` in `server/src/routes/users.ts`:
+  ```ts
+  import { createUserSchema } from 'core'
+
+  const parsed = createUserSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+  ```
+  New request-body-accepting routes should follow this pattern — add the
+  schema to `core` if the client validates the same shape, otherwise define
+  it locally in the route file — rather than adding ad hoc inline checks.
+
+## Error handling
+
+Express 5 (used here — see `server/package.json`) automatically catches a
+rejected promise returned from an `async` route/middleware handler and
+forwards it to the error-handling middleware, the same as calling `next(err)`
+manually. Route handlers in `server/src/index.ts` rely on this and don't
+wrap their body in `try`/`catch` — a plain `await` that throws is enough.
+(This is an Express 5 behavior change; it did not do this in Express 4,
+which is why older Express code is full of manual `try`/`catch` + `next(err)`
+in every async handler.)
+
+A single error-handling middleware, registered last in `server/src/index.ts`
+(after every route), is the one place that turns a thrown error into a
+response:
+```ts
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
+    return
+  }
+
+  console.error(err)
+  res.status(500).json({ status: 'error', message: 'Internal server error' })
+})
+```
+A route that needs to turn a specific failure into a specific status code
+(e.g. `P2002` → `409`) still does that in this shared middleware, not with
+its own `try`/`catch` — add another `if` branch here rather than
+reintroducing per-route error handling.
 
 ## Security middleware
 

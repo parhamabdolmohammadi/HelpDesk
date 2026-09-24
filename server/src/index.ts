@@ -3,10 +3,11 @@ import helmet from 'helmet'
 import cors from 'cors'
 import { rateLimit } from 'express-rate-limit'
 import { toNodeHandler } from 'better-auth/node'
+import { Prisma } from './generated/prisma/client.ts'
 import { prisma } from './db.ts'
 import { auth } from './auth.ts'
 import { requireAuth } from './middleware/requireAuth.ts'
-import { requireRole } from './middleware/requireRole.ts'
+import { usersRouter } from './routes/users.ts'
 import { trustedOrigins } from './trustedOrigins.ts'
 
 const app = express()
@@ -35,25 +36,27 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.get('/api/health/db', async (_req, res) => {
-  try {
-    const ticketCount = await prisma.ticket.count()
-    res.json({ status: 'ok', ticketCount })
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: (err as Error).message })
-  }
+  const ticketCount = await prisma.ticket.count()
+  res.json({ status: 'ok', ticketCount })
 })
 
 app.get('/api/me', requireAuth, (req, res) => {
   res.json({ user: req.user })
 })
 
-app.get('/api/users', requireAuth, requireRole('ADMIN'), async (_req, res) => {
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: { createdAt: 'asc' },
-  })
+app.use('/api/users', usersRouter)
 
-  res.json({ users })
+// Express 5 forwards a rejected promise from any route/middleware above to
+// this error handler automatically, so routes don't need their own
+// try/catch just to translate an error into a response.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
+    return
+  }
+
+  console.error(err)
+  res.status(500).json({ status: 'error', message: 'Internal server error' })
 })
 
 app.listen(port, () => {

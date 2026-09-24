@@ -10,15 +10,20 @@ stack and why, and [`implementation-plan.md`](./implementation-plan.md) for
 the phased task breakdown.
 
 **Current status:** authentication (login, session-based auth, sign-out) and
-an admin-only user list are implemented. Ticket CRUD, AI features, and email
-integration are not built yet — see `implementation-plan.md` for what's next.
+an admin-only user list, including creating new users from a modal, are
+implemented. Ticket CRUD, AI features, and email integration are not built
+yet — see `implementation-plan.md` for what's next.
 
 ## Tech stack
 
 - **Frontend:** React + TypeScript (Vite), React Router, Tailwind CSS,
   shadcn/ui (Radix + Nova preset, default/neutral theme), React Hook Form + Zod,
   TanStack Query + Axios (for API calls other than Better Auth's own client)
-- **Backend:** Express + TypeScript, run directly by Bun
+- **Backend:** Express + TypeScript, run directly by Bun, request bodies
+  validated with Zod
+- **Shared:** a `core` workspace package holding Zod schemas used by both
+  `client` and `server` (no build step — both import its `.ts` source
+  directly)
 - **Database:** PostgreSQL, accessed via Prisma
 - **Auth:** [Better Auth](https://www.better-auth.com/), database-backed
   sessions (HTTP-only cookie + server-side session table)
@@ -30,14 +35,31 @@ integration are not built yet — see `implementation-plan.md` for what's next.
 ```
 client/   React app (Vite)
 server/   Express API + Prisma schema/migrations
+core/     Zod schemas shared by client and server
 ```
 
 - `client/src/pages/` — routed pages (`Login` — built with shadcn/ui's
   `Card`/`Input`/`Label`/`Button`/`Alert`, wired to the existing
   react-hook-form + Zod validation; `Home`; `Users` — admin-only, loads
   `GET /api/users` (Axios, inside a TanStack Query `useQuery`) and renders
-  name/email/role/created-date in a table, showing shadcn/ui `Skeleton` rows
-  while `isPending`)
+  `CreateUserModal` above a `UsersTable`, passing it the fetched
+  `users`/`isPending`; shows the "Failed to load users" alert itself
+  instead of the table when the query errors)
+- `client/src/components/UsersTable.tsx` — the `users`/`isPending`-driven
+  table itself (also exports the `UserListItem`/`UserRole` types): renders
+  shadcn/ui `Skeleton` rows while `isPending`, `null` if not pending and
+  `users` isn't loaded yet, otherwise the name/email/role/created-date
+  rows (falling back to `—` for a null name, "No users found." when the
+  array is empty, and a differently-styled badge for `ADMIN` vs `AGENT`)
+- `client/src/components/CreateUserModal.tsx` — "New user" button (shadcn
+  `Dialog`) that opens a form (name/email/password) using react-hook-form +
+  the shared `createUserSchema` from `core` (name min 3 chars, password min
+  8 chars — see `core/src/schemas/user.ts` and Data validation in
+  `CLAUDE.md`), submits via a TanStack Query `useMutation` to
+  `POST /api/users`, invalidates the `['users']` query on success, and
+  closes the dialog. New users are always created with the `AGENT` role —
+  role isn't a form field, since it isn't settable via user input (see
+  Authorization in `CLAUDE.md`)
 - `client/src/App.tsx` — wraps the router in a `QueryClientProvider`, with
   the `QueryClient` instance held in `useState(() => new QueryClient())` so
   it's created once and stays stable across re-renders
@@ -52,29 +74,56 @@ server/   Express API + Prisma schema/migrations
 - `server/src/auth.ts` — Better Auth server config
 - `server/src/middleware/requireAuth.ts` — rejects unauthenticated requests
 - `server/src/middleware/requireRole.ts` — `requireRole(role)`, composed
-  after `requireAuth`, rejects requests where `req.user.role` doesn't match;
-  apply it to any admin-only API route (`requireAuth` alone only checks
-  "is logged in", not role — the client's `ProtectedRoute adminOnly` guard
-  is not itself a security boundary, since it can be bypassed by calling
-  the API directly)
-- `server/src/index.ts` — Express app and routes. `/api/me` returns only
-  `{ user }`, never the raw session object — the session's `token` field
-  would otherwise defeat the session cookie's `httpOnly` protection.
-  `/api/users` (`requireAuth` + `requireRole('ADMIN')`) returns all users'
-  `id`/`name`/`email`/`role`/`createdAt` for the admin-only Users page.
-  Applies `helmet()` for security headers, `cors()` restricted to
-  `trustedOrigins` (with `credentials: true` for the session cookie), and
-  an `express-rate-limit` limiter (10 requests / 15 min) scoped to
-  `/api/auth/sign-in/email` only — not the whole `/api/auth/*` namespace,
-  since that also covers frequent, non-brute-forceable calls like session
-  checks and sign-out. The limiter is only registered when
+  after `requireAuth`, rejects requests where `req.user.role` doesn't
+  match; applied to the whole `usersRouter` (`requireAuth` alone only
+  checks "is logged in", not role — the client's `ProtectedRoute
+  adminOnly` guard is not itself a security boundary, since it can be
+  bypassed by calling the API directly)
+- `server/src/index.ts` — creates the Express `app`, registers global
+  middleware, and mounts each resource's router; it doesn't define
+  resource routes itself (see `server/src/routes/` below). `/api/me`
+  (`requireAuth`) returns only `{ user }`, never the raw session object —
+  the session's `token` field would otherwise defeat the session cookie's
+  `httpOnly` protection. Also defines the single error-handling middleware,
+  registered last: translates a Prisma `P2002` (unique constraint) into
+  `409`, and falls back to `500` otherwise — the one place that turns a
+  thrown/rejected error into a response, since Express 5 forwards a
+  rejected promise from an `async` handler to it automatically, so route
+  handlers don't need their own `try`/`catch` (see Error handling in
+  `CLAUDE.md`). Applies `helmet()` for security headers, `cors()`
+  restricted to `trustedOrigins` (with `credentials: true` for the session
+  cookie), and an `express-rate-limit` limiter (10 requests / 15 min)
+  scoped to `/api/auth/sign-in/email` only — not the whole `/api/auth/*`
+  namespace, since that also covers frequent, non-brute-forceable calls
+  like session checks and sign-out. The limiter is only registered when
   `NODE_ENV=production` (set by the `start` script), so it's off during
   `bun run dev` and doesn't interfere with local testing
+- `server/src/routes/users.ts` — `usersRouter`, mounted at `/api/users` in
+  `index.ts`. `usersRouter.use(requireAuth, requireRole('ADMIN'))` guards
+  every route on it, so the whole resource is admin-only by construction.
+  `GET /` returns all users' `id`/`name`/`email`/`role`/`createdAt` for the
+  admin-only Users page. `POST /` validates `name`/`email`/`password` with
+  the same `createUserSchema` from `core` the client form uses
+  (`createUserSchema.safeParse`, see Data validation in `CLAUDE.md`),
+  creates the `User` (with `role: UserRole.AGENT` passed
+  explicitly, not left to the Prisma schema's `@default(AGENT)`) + a
+  `credential` `Account` row in a transaction (mirroring `seed.ts`'s
+  `hashPassword` + `Account` pattern), and returns `201` with the created
+  user, `400` on invalid input (the first Zod issue's message), or `409` on
+  a duplicate email via `index.ts`'s error-handling middleware
 - `server/src/trustedOrigins.ts` — the single source of truth for allowed
   origins (`TRUSTED_ORIGINS` env var, defaulting to
   `http://localhost:5173`), imported by both `auth.ts` (Better Auth's
   `trustedOrigins`) and `index.ts` (the `cors()` origin) so they can't
   drift out of sync
+- `core/src/schemas/user.ts` — `createUserSchema` (and its inferred
+  `CreateUserInput` type), re-exported from `core/src/index.ts`. Imported
+  as the `core` workspace package (`"core": "workspace:*"` in both
+  `client/package.json` and `server/package.json`) by
+  `CreateUserModal.tsx` and `usersRouter`, so the two sides can't drift
+  out of sync on what a valid new user looks like. `core` has no build
+  step — both consumers resolve and transform its `.ts` source directly
+  (Vite via `@fs`, Bun natively)
 - `server/prisma/schema.prisma` — data model (`User`, `Ticket`, plus Better
   Auth's `Session`/`Account`/`Verification`)
 - `playwright.config.ts` (repo root) — starts the server (port `4100`) and
@@ -219,10 +268,21 @@ cleanup when it detects a global `afterEach`).
   Vitest's automock, so `axios.get` is a plain `vi.fn()`) and mocks `NavBar`
   out entirely (it depends on Better Auth's `useSession`, which is
   unrelated to what this page renders) to test `Users.tsx` in isolation via
-  `renderWithQuery`: loading skeletons before the query resolves, the
-  fetched rows rendering (including the `—` fallback for a null `name`),
-  the `ADMIN` vs `AGENT` badge styling, the error alert on a rejected
-  request, and the empty state.
+  `renderWithQuery`: the fetched data reaching the table, and the error
+  alert on a rejected request (instead of the table). Doesn't re-test
+  `UsersTable`'s own rendering (loading/empty/badge styling) — that's
+  `UsersTable.test.tsx`'s job.
+- `client/src/components/UsersTable.test.tsx` — plain `render` (no
+  `renderWithQuery` needed; `UsersTable` takes `users`/`isPending` as
+  props, it doesn't fetch) covering its states directly: loading
+  skeletons, `null` when not pending with no `users` yet, the fetched rows
+  (including the `—` fallback for a null `name`), the `ADMIN` vs `AGENT`
+  badge styling, and the empty state.
+- `client/src/components/CreateUserModal.test.tsx` — mocks `axios` (`post` +
+  `isAxiosError`) and drives the dialog with `@testing-library/user-event`:
+  opening it, the Zod validation messages for a short name/password and an
+  invalid email, a valid submit calling `POST /api/users` and closing the
+  dialog, and the error alert on a rejected request (e.g. duplicate email).
 
 **Running tests:**
 ```

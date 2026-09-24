@@ -5,7 +5,8 @@
   "packageManager": "bun@1.4.0",
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "core"
   ],
   "scripts": {
     "dev:client": "bun run --cwd client dev",
