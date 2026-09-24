@@ -134,6 +134,8 @@ server, so the frontend never needs to know the backend's port directly.
 
 ## Testing
 
+### End-to-end tests
+
 End-to-end tests run with [Playwright](https://playwright.dev/) against a
 separate `helpdesk_test` database, so they never touch dev data. Specs live
 in `e2e/`:
@@ -195,6 +197,37 @@ using `server/.env.test`) and client (`http://localhost:5174`) — separate
 ports from normal dev (`4000`/`5173`) so a running dev session never
 conflicts with a test run, and tests never run against dev data. Re-run
 `bun run migrate:test` in `server/` whenever `prisma/schema.prisma` changes.
+
+### Component tests
+
+Component-level tests for `client/` use [Vitest](https://vitest.dev/) +
+[React Testing Library](https://testing-library.com/react), separate from
+the Playwright E2E suite above (no server/database involved — API calls are
+mocked). Config lives in `client/vite.config.ts`'s `test` block (`jsdom`
+environment, `client/src/test/setup.ts` as the setup file, which imports
+`@testing-library/jest-dom/vitest` matchers and registers RTL's `cleanup` in
+an `afterEach`, since `globals` isn't enabled and RTL only auto-registers
+cleanup when it detects a global `afterEach`).
+
+- `client/src/test/render-with-query.tsx` — `renderWithQuery(ui)`, a shared
+  helper that renders a component inside a fresh `QueryClientProvider`
+  (`retry: false`, so a mocked rejection surfaces immediately instead of
+  retrying). Use it for any page/component under test that fetches through
+  TanStack Query, instead of wrapping each test file's own
+  `QueryClientProvider`.
+- `client/src/pages/Users.test.tsx` — mocks `axios` (factory mock, not
+  Vitest's automock, so `axios.get` is a plain `vi.fn()`) and mocks `NavBar`
+  out entirely (it depends on Better Auth's `useSession`, which is
+  unrelated to what this page renders) to test `Users.tsx` in isolation via
+  `renderWithQuery`: loading skeletons before the query resolves, the
+  fetched rows rendering (including the `—` fallback for a null `name`),
+  the `ADMIN` vs `AGENT` badge styling, the error alert on a rejected
+  request, and the empty state.
+
+**Running tests:**
+```
+cd client && bun run test
+```
 
 ## Known issues
 

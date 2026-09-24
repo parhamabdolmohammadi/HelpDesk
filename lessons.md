@@ -178,8 +178,8 @@ security vulnerabilities.)
 
 - replace the loading message with loading skeletons
 
-5 - Navbar Home Link
-
 - add a link to homepage on the app name in navbar
 
+5 - writing Unit teste
 
+- write component tests for the user list page using react library.

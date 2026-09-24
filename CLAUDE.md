@@ -231,6 +231,48 @@ touching `playwright.config.ts` itself, or one-off manual verification
 (e.g. spinning up the test server to sanity-check something), doesn't need
 the subagent.
 
+### Component tests
+
+Component-level tests for `client/` (rendering a single page/component with
+mocked API calls — no server, no database, no browser) are a **separate
+layer from E2E, not owned by `e2e-test-writer`**: [Vitest](https://vitest.dev/)
++ [React Testing Library](https://testing-library.com/react).
+
+**When to add one:** any new or changed page/component that has more than
+trivial render logic — data fetched from the API, distinct loading/error/
+empty states, conditional styling/branches — should get a component test
+alongside it, the same way a new user-facing flow gets an E2E spec.
+
+**Where it goes:** colocate as `<ComponentName>.test.tsx` next to the
+component it tests (e.g. `client/src/pages/Users.tsx` →
+`client/src/pages/Users.test.tsx`), not in a separate `__tests__/` tree.
+
+**How to write one**, following `client/src/pages/Users.test.tsx` as the
+reference:
+- If the component fetches through TanStack Query, render it with
+  `renderWithQuery` from `client/src/test/render-with-query.tsx` instead of
+  hand-rolling a `QueryClientProvider` per test file — it creates a fresh
+  `QueryClient` per render with `retry: false`, so a mocked rejection
+  surfaces immediately instead of retrying.
+- Mock `axios` with an explicit factory
+  (`vi.mock('axios', () => ({ default: { get: vi.fn() } }))`), not Vitest's
+  automock — it doesn't reliably reproduce axios's callable-object-with-
+  methods shape.
+- Mock out unrelated child components that pull in concerns outside what's
+  under test — e.g. `NavBar`, which depends on Better Auth's `useSession`
+  and has nothing to do with a given page's own logic.
+- Config lives in the `test` block of `client/vite.config.ts` (`jsdom`
+  environment); `client/src/test/setup.ts` is the setup file (imports
+  `@testing-library/jest-dom/vitest` matchers and registers RTL's `cleanup`
+  in an `afterEach` — required because `globals` is off, so RTL won't
+  auto-register cleanup on its own).
+
+**How to run them**, from `client/`:
+```
+bun run test          # run once (used in CI / before considering a task done)
+bun run test:watch    # watch mode, for iterating while writing a spec
+```
+
 ## Known issue: no lockfile
 
 `bun install` on this machine fails when writing `bun.lock`/`bun.lockb`
