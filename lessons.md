@@ -156,3 +156,13 @@ security vulnerabilities.)
 
 - write e2e tests for authentication cover all edge cases using e2e-test-writer agent that weve created
 
+
+
+## User List Feature
+
+### Sessions
+
+2- Listing Users
+
+- Build the user List feature. build both the frontend and backend. This feature should be only accessible to admin
+

@@ -9,9 +9,9 @@ writeup and open questions, [`techstack.md`](./techstack.md) for the chosen
 stack and why, and [`implementation-plan.md`](./implementation-plan.md) for
 the phased task breakdown.
 
-**Current status:** authentication (login, session-based auth, sign-out) is
-implemented. Ticket CRUD, AI features, and email integration are not built
-yet — see `implementation-plan.md` for what's next.
+**Current status:** authentication (login, session-based auth, sign-out) and
+an admin-only user list are implemented. Ticket CRUD, AI features, and email
+integration are not built yet — see `implementation-plan.md` for what's next.
 
 ## Tech stack
 
@@ -33,7 +33,8 @@ server/   Express API + Prisma schema/migrations
 
 - `client/src/pages/` — routed pages (`Login` — built with shadcn/ui's
   `Card`/`Input`/`Label`/`Button`/`Alert`, wired to the existing
-  react-hook-form + Zod validation; `Home`; `Users` — admin-only)
+  react-hook-form + Zod validation; `Home`; `Users` — admin-only, fetches
+  `GET /api/users` and renders name/email/role/created-date in a table)
 - `client/src/components/` — shared UI (`NavBar`, `ProtectedRoute` — takes an
   `adminOnly` prop that redirects non-admins to `/`, using the `role` field
   Better Auth exposes on `session.user` via the client's `inferAdditionalFields`
@@ -53,6 +54,8 @@ server/   Express API + Prisma schema/migrations
 - `server/src/index.ts` — Express app and routes. `/api/me` returns only
   `{ user }`, never the raw session object — the session's `token` field
   would otherwise defeat the session cookie's `httpOnly` protection.
+  `/api/users` (`requireAuth` + `requireRole('ADMIN')`) returns all users'
+  `id`/`name`/`email`/`role`/`createdAt` for the admin-only Users page.
   Applies `helmet()` for security headers, `cors()` restricted to
   `trustedOrigins` (with `credentials: true` for the session cookie), and
   an `express-rate-limit` limiter (10 requests / 15 min) scoped to

@@ -6,6 +6,7 @@ import { toNodeHandler } from 'better-auth/node'
 import { prisma } from './db.ts'
 import { auth } from './auth.ts'
 import { requireAuth } from './middleware/requireAuth.ts'
+import { requireRole } from './middleware/requireRole.ts'
 import { trustedOrigins } from './trustedOrigins.ts'
 
 const app = express()
@@ -44,6 +45,15 @@ app.get('/api/health/db', async (_req, res) => {
 
 app.get('/api/me', requireAuth, (req, res) => {
   res.json({ user: req.user })
+})
+
+app.get('/api/users', requireAuth, requireRole('ADMIN'), async (_req, res) => {
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  res.json({ users })
 })
 
 app.listen(port, () => {
