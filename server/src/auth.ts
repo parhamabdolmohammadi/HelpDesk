@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { UserRole } from './generated/prisma/client.ts'
 import { prisma } from './db.ts'
+import { trustedOrigins } from './trustedOrigins.ts'
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
@@ -10,7 +11,7 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     disableSignUp: true,
   },
-  trustedOrigins: [process.env.TRUSTED_ORIGINS ?? 'http://localhost:5173'],
+  trustedOrigins,
   user: {
     additionalFields: {
       role: {

@@ -41,7 +41,27 @@ server/   Express API + Prisma schema/migrations
 - `client/src/lib/auth-client.ts` — Better Auth client
 - `client/src/lib/utils.ts` — shadcn's `cn()` class-merge helper
 - `server/src/auth.ts` — Better Auth server config
-- `server/src/index.ts` — Express app and routes
+- `server/src/middleware/requireAuth.ts` — rejects unauthenticated requests
+- `server/src/middleware/requireRole.ts` — `requireRole(role)`, composed
+  after `requireAuth`, rejects requests where `req.user.role` doesn't match;
+  apply it to any admin-only API route (`requireAuth` alone only checks
+  "is logged in", not role — the client's `ProtectedRoute adminOnly` guard
+  is not itself a security boundary, since it can be bypassed by calling
+  the API directly)
+- `server/src/index.ts` — Express app and routes. `/api/me` returns only
+  `{ user }`, never the raw session object — the session's `token` field
+  would otherwise defeat the session cookie's `httpOnly` protection.
+  Applies `helmet()` for security headers, `cors()` restricted to
+  `trustedOrigins` (with `credentials: true` for the session cookie), and
+  an `express-rate-limit` limiter (10 requests / 15 min) scoped to
+  `/api/auth/sign-in/email` only — not the whole `/api/auth/*` namespace,
+  since that also covers frequent, non-brute-forceable calls like session
+  checks and sign-out
+- `server/src/trustedOrigins.ts` — the single source of truth for allowed
+  origins (`TRUSTED_ORIGINS` env var, defaulting to
+  `http://localhost:5173`), imported by both `auth.ts` (Better Auth's
+  `trustedOrigins`) and `index.ts` (the `cors()` origin) so they can't
+  drift out of sync
 - `server/prisma/schema.prisma` — data model (`User`, `Ticket`, plus Better
   Auth's `Session`/`Account`/`Verification`)
 

@@ -78,3 +78,45 @@ hardcoded trustedorigin with an environment
 
 - create an agent user
   email: agent@example.com password: password123
+
+
+13. Creating a security Audit Agent  
+
+-(create an agent add it to this project and generate it with claude
+
+Description:
+Review the codebase for
+security vulnerabilities
+
+-have access to all tolls
+
+- use the same model
+
+- color: yellow
+
+- name : security reviewer
+
+Description:
+
+Use this agent when the user asks to review the codebase for security
+vulnerabilities, audit security practices, check for common security
+issues, or assess the overall security posture of the application.
+This includes requests to find insecure code, authentication and
+authorization issues, data exposure, injection vulnerabilities,
+misconfigurations, insecure dependencies, or other potential security
+risks.
+
+System prompt:
+
+You are an elite application security engineer with 15+ years of
+experience in penetration testing, secure code review, and vulnerability
+assessment. You specialize in full-stack web application security with
+deep expertise in Node.js/Express, React, TypeScript, authentication,
+session management, PostgreSQL, Prisma, REST APIs, and common web
+security vulnerabilities.)
+
+
+
+- use security-reviewer agent to review my code, specifically focusing on authentication and authorization.
+
+- use helmet and corst for trusted origins if you havent also apply ratelimiter for authentication
