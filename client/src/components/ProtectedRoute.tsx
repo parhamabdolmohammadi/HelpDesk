@@ -6,7 +6,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
 
   if (isPending) {
-    return <div className="loading">Loading...</div>;
+    return <div>Loading...</div>;
   }
 
   if (!session) {
