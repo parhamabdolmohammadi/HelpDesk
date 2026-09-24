@@ -15,7 +15,9 @@ export function NavBar() {
 
   return (
     <nav className="flex items-center justify-between border-b border-border bg-white px-6 py-3">
-      <span className="text-lg font-semibold text-foreground">Help Desk</span>
+      <Link to="/" className="text-lg font-semibold text-foreground">
+        Help Desk
+      </Link>
       <div className="flex items-center gap-4">
         {session?.user.role === 'ADMIN' && (
           <Link to="/users" className="text-sm text-muted-foreground hover:text-foreground">

@@ -174,3 +174,12 @@ security vulnerabilities.)
 
 -add an instrution to claude.md to use axios and react query
 
+4 - Using Loading Skeletons
+
+- replace the loading message with loading skeletons
+
+5 - Navbar Home Link
+
+- add a link to homepage on the app name in navbar
+
+

@@ -36,7 +36,8 @@ server/   Express API + Prisma schema/migrations
   `Card`/`Input`/`Label`/`Button`/`Alert`, wired to the existing
   react-hook-form + Zod validation; `Home`; `Users` — admin-only, loads
   `GET /api/users` (Axios, inside a TanStack Query `useQuery`) and renders
-  name/email/role/created-date in a table)
+  name/email/role/created-date in a table, showing shadcn/ui `Skeleton` rows
+  while `isPending`)
 - `client/src/App.tsx` — wraps the router in a `QueryClientProvider`, with
   the `QueryClient` instance held in `useState(() => new QueryClient())` so
   it's created once and stays stable across re-renders
