@@ -91,4 +91,65 @@ describe('CreateUserModal', () => {
       await screen.findByText('A user with this email already exists'),
     ).toBeInTheDocument()
   })
+
+  it('shows required-field errors when submitting an empty form', async () => {
+    const user = await openModal()
+
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    expect(
+      await screen.findByText('Name must be at least 3 characters'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true')
+    expect(
+      screen.getByText('Password must be at least 8 characters'),
+    ).toBeInTheDocument()
+    expect(mockPost).not.toHaveBeenCalled()
+  })
+
+  it('disables the submit button and shows a pending label while the request is in flight', async () => {
+    let resolvePost: (value: unknown) => void = () => {}
+    mockPost.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePost = resolve
+      }),
+    )
+
+    const user = await openModal()
+
+    await user.type(screen.getByLabelText('Name'), 'New User')
+    await user.type(screen.getByLabelText('Email'), 'new@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+
+    expect(await screen.findByRole('button', { name: 'Creating…' })).toBeDisabled()
+
+    resolvePost({
+      data: { user: { id: '1', name: 'New User', email: 'new@example.com', role: 'AGENT' } },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+  })
+
+  it('resets the form and any error when closed and reopened', async () => {
+    const user = await openModal()
+
+    await user.type(screen.getByLabelText('Name'), 'ab')
+    await user.click(screen.getByRole('button', { name: 'Create user' }))
+    expect(
+      await screen.findByText('Name must be at least 3 characters'),
+    ).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'New user' }))
+
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+    expect(
+      screen.queryByText('Name must be at least 3 characters'),
+    ).not.toBeInTheDocument()
+  })
 })

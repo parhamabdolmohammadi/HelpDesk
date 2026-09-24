@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import axios from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithQuery } from '../test/render-with-query'
@@ -56,5 +57,46 @@ describe('Users page', () => {
 
     expect(await screen.findByText('Failed to load users')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows the create-user dialog when "New user" is clicked', async () => {
+    mockGet.mockResolvedValue({ data: { users: sampleUsers } })
+    const user = userEvent.setup()
+
+    renderUsers()
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'New user' }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('hides the dialog when Escape is pressed', async () => {
+    mockGet.mockResolvedValue({ data: { users: sampleUsers } })
+    const user = userEvent.setup()
+
+    renderUsers()
+    await user.click(screen.getByRole('button', { name: 'New user' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('hides the dialog when clicking outside it', async () => {
+    mockGet.mockResolvedValue({ data: { users: sampleUsers } })
+    const user = userEvent.setup()
+
+    renderUsers()
+    await user.click(screen.getByRole('button', { name: 'New user' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')
+    if (!overlay) throw new Error('dialog overlay not found')
+    await user.click(overlay)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

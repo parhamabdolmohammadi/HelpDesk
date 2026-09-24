@@ -271,7 +271,14 @@ cleanup when it detects a global `afterEach`).
   `renderWithQuery`: the fetched data reaching the table, and the error
   alert on a rejected request (instead of the table). Doesn't re-test
   `UsersTable`'s own rendering (loading/empty/badge styling) — that's
-  `UsersTable.test.tsx`'s job.
+  `UsersTable.test.tsx`'s job. Also covers the `CreateUserModal` dialog
+  from the page level, via `@testing-library/user-event`: clicking "New
+  user" shows it (`getByRole('dialog')`), and it closes both on `Escape`
+  and on a click on the dialog overlay (`[data-slot="dialog-overlay"]`) —
+  both are Radix `Dialog`'s own default dismiss behavior, not custom code,
+  so these tests are really guarding against a future change (e.g. a
+  `onPointerDownOutside`/`onEscapeKeyDown` override) accidentally
+  disabling it.
 - `client/src/components/UsersTable.test.tsx` — plain `render` (no
   `renderWithQuery` needed; `UsersTable` takes `users`/`isPending` as
   props, it doesn't fetch) covering its states directly: loading
@@ -281,8 +288,12 @@ cleanup when it detects a global `afterEach`).
 - `client/src/components/CreateUserModal.test.tsx` — mocks `axios` (`post` +
   `isAxiosError`) and drives the dialog with `@testing-library/user-event`:
   opening it, the Zod validation messages for a short name/password and an
-  invalid email, a valid submit calling `POST /api/users` and closing the
-  dialog, and the error alert on a rejected request (e.g. duplicate email).
+  invalid email, the required-field errors on an empty submit, a valid
+  submit calling `POST /api/users` and closing the dialog, the submit
+  button showing a disabled "Creating…" state while that request is in
+  flight (a manually-resolved `Promise` held open mid-test), the error
+  alert on a rejected request (e.g. duplicate email), and the form/error
+  resetting when the dialog is closed (`Escape`) and reopened.
 
 **Running tests:**
 ```

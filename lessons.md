@@ -223,3 +223,9 @@ in the database and hide the modal.)
 
 - create a users table component and refactor from users page
 
+9 - Testing Creating Users
+
+- write unit tests for the userspage to make sure that when the button is clicked the dialog
+is shown. and that it gets hidden when we click outside or press esc.
+
+- write unit tests for create user form
