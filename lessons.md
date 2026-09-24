@@ -135,19 +135,24 @@ security vulnerabilities.)
 
 18 - Creating a testing agent
 
-(- Create a n agent and add it to this project and generate it with claude
+  (- Create a n agent and add it to this project and generate it with claude
 
-  Description:
-  Write E2E Tests Using PlayWright
+    Description:
+    Write E2E Tests Using PlayWright
 
-  -have access to all tools
+    -have access to all tools
 
-  -use the same model
+    -use the same model
 
-  -color: Purple
+    -color: Purple
 
-  -name: e2e test writer
+    -name: e2e test writer
 
-  move the testing instructions from claude.md to e2e-test-writer)
+    move the testing instructions from claude.md to e2e-test-writer)
 
-- update claude.md add instructions for using e2e-test-writer for writing tests
+  - update claude.md add instructions for using e2e-test-writer for writing tests
+
+19- Writing And Running E2E Tests
+
+- write e2e tests for authentication cover all edge cases using e2e-test-writer agent that weve created
+

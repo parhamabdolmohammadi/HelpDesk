@@ -10,30 +10,49 @@ if (!email || !password) {
   throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set')
 }
 
-const existing = await prisma.user.findUnique({ where: { email } })
+// AGENT_EMAIL / AGENT_PASSWORD are optional and only expected to be set in
+// server/.env.test, so this only seeds a non-admin user for the e2e test
+// database (used by role-based-access specs) and stays a no-op for the
+// production/dev seed, which has no such vars.
+const agentEmail = process.env.AGENT_EMAIL
+const agentPassword = process.env.AGENT_PASSWORD
 
-if (existing) {
-  console.log(`Admin User ${email} already exists, skipping.`)
-  process.exit(0)
+async function seedUser(userEmail: string, userPassword: string, role: UserRole, name: string) {
+  const existing = await prisma.user.findUnique({ where: { email: userEmail } })
+
+  if (existing) {
+    console.log(`User ${userEmail} already exists, skipping.`)
+    return
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email: userEmail,
+      name,
+      role,
+      emailVerified: true,
+    },
+  })
+
+  await prisma.account.create({
+    data: {
+      id: randomUUID(),
+      userId: user.id,
+      accountId: user.id,
+      providerId: 'credential',
+      password: await hashPassword(userPassword),
+    },
+  })
+
+  console.log(`Created ${role} user ${userEmail}`)
 }
 
-const user = await prisma.user.create({
-  data: {
-    email,
-    name: 'Admin',
-    role: UserRole.ADMIN,
-    emailVerified: true,
-  },
-})
+await seedUser(email, password, UserRole.ADMIN, 'Admin')
 
-await prisma.account.create({
-  data: {
-    id: randomUUID(),
-    userId: user.id,
-    accountId: user.id,
-    providerId: 'credential',
-    password: await hashPassword(password),
-  },
-})
+if (agentEmail && agentPassword) {
+  await seedUser(agentEmail, agentPassword, UserRole.AGENT, 'Agent')
+} else {
+  console.log('AGENT_EMAIL/AGENT_PASSWORD not set, skipping agent user seed.')
+}
 
-console.log(`Created admin user ${email}`)
+process.exit(0)

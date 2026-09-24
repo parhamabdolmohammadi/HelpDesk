@@ -127,7 +127,34 @@ server, so the frontend never needs to know the backend's port directly.
 
 End-to-end tests run with [Playwright](https://playwright.dev/) against a
 separate `helpdesk_test` database, so they never touch dev data. Specs live
-in `e2e/` (empty for now — no tests have been written yet, just the setup).
+in `e2e/`:
+
+- `e2e/auth.spec.ts` — sign-in flow: valid login, wrong password, unknown
+  email, empty-field and malformed-email client-side validation (red
+  border / Zod messages, no request sent), session persistence across a
+  reload, sign-out clearing the session server-side, an unauthenticated
+  deep link landing on `/` (not the original page) after login, and
+  visiting `/login` while already authenticated (redirects to `/`, per
+  `Login.tsx`'s own `<Navigate>` when a session exists).
+- `e2e/access-control.spec.ts` — `ProtectedRoute` behavior for logged-out
+  users (redirect to `/login`, including for unknown routes via the `*`
+  catch-all and a direct `/api/me` call returning 401) and role-based
+  access (`ADMIN` sees the Users nav link and can open `/users`; `AGENT`
+  does not see the link and is redirected away from `/users`).
+- `e2e/global-setup.ts` — wired in via `playwright.config.ts`'s
+  `globalSetup`. Logs in once per role (`ADMIN`/`AGENT`) through the real
+  UI and saves each session as a Playwright `storageState` file under
+  `e2e/.auth/` (gitignored). Specs that just need "already logged in as
+  role X" as a precondition use `test.use({ storageState: ... })` instead
+  of repeating the UI login in every test.
+- `e2e/helpers/test-env.ts` — reads `ADMIN_EMAIL`/`ADMIN_PASSWORD`/
+  `AGENT_EMAIL`/`AGENT_PASSWORD` from `server/.env.test` at runtime rather
+  than hardcoding credentials in spec files.
+
+`server/src/seed.ts` also seeds an `AGENT`-role user when `AGENT_EMAIL`/
+`AGENT_PASSWORD` are set (only expected in `server/.env.test`, for the
+role-based-access specs above); it stays a no-op for the production/dev
+seed, which has no such vars.
 
 **One-time setup**, from the repo root:
 
@@ -137,6 +164,9 @@ in `e2e/` (empty for now — no tests have been written yet, just the setup).
    required keys) — same `DATABASE_URL` as `server/.env` but pointing at
    `helpdesk_test`, plus its own `BETTER_AUTH_SECRET`, and
    `BETTER_AUTH_URL`/`PORT`/`TRUSTED_ORIGINS` set to the test ports below.
+   `AGENT_EMAIL`/`AGENT_PASSWORD` are also required here (unlike
+   `server/.env`) so `seed:test` creates a non-admin user for the
+   role-based-access specs.
 3. Install Playwright's browser binaries:
    ```
    bunx playwright install

@@ -8,6 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: 'html',
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL: CLIENT_URL,
     trace: 'on-first-retry',
