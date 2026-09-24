@@ -183,3 +183,9 @@ security vulnerabilities.)
 5 - writing Unit teste
 
 - write component tests for the user list page using react library.
+
+- update claude.md and add instructions for writing and executing component tests
+  
+- run all component tests
+
+-add a command to client package.json to run component tests

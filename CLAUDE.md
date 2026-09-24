@@ -269,9 +269,11 @@ reference:
 
 **How to run them**, from `client/`:
 ```
-bun run test          # run once (used in CI / before considering a task done)
-bun run test:watch    # watch mode, for iterating while writing a spec
+bun run test:component   # run once (used in CI / before considering a task done)
+bun run test:watch       # watch mode, for iterating while writing a spec
 ```
+(`bun run test` is an identical alias to `test:component`, kept because it
+predates that name.)
 
 ## Known issue: no lockfile
 

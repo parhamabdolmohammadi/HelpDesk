@@ -226,8 +226,10 @@ cleanup when it detects a global `afterEach`).
 
 **Running tests:**
 ```
-cd client && bun run test
+cd client && bun run test:component
 ```
+(`bun run test` is an identical alias, kept for brevity in ad hoc use; `bun
+run test:watch` re-runs on file changes while writing a spec.)
 
 ## Known issues
 
