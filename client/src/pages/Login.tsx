@@ -4,6 +4,17 @@ import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { signIn, useSession } from "../lib/auth-client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -41,60 +52,58 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
-      >
-        <h1 className="mb-4 text-lg font-semibold text-gray-900">Sign in</h1>
+    <div className="flex min-h-screen items-center justify-center bg-muted/50">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>
+            Enter your email and password to access your account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-4">
+            {formError && (
+              <Alert variant="destructive">
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
+            )}
 
-        {formError && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {formError}
-          </div>
-        )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                aria-invalid={!!errors.email}
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
 
-        <label className="mb-3 block text-sm">
-          <span className="mb-1 block text-gray-700">Email</span>
-          <input
-            type="email"
-            autoComplete="email"
-            {...register("email")}
-            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-              errors.email ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-gray-500"
-            }`}
-          />
-          {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-          )}
-        </label>
+            <div className="grid gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                aria-invalid={!!errors.password}
+                {...register("password")}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
 
-        <label className="mb-4 block text-sm">
-          <span className="mb-1 block text-gray-700">Password</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            {...register("password")}
-            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-              errors.password ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-gray-500"
-            }`}
-          />
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600">
-              {errors.password.message}
-            </p>
-          )}
-        </label>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {isSubmitting ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

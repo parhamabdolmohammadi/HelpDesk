@@ -64,6 +64,81 @@ bunx prisma migrate dev --name <description>
 bunx prisma generate
 ```
 
+## Authentication
+
+[Better Auth](https://www.better-auth.com/), email/password only, with
+database-backed sessions (no JWT) via `@better-auth/prisma-adapter`.
+
+- `server/src/auth.ts` — the `betterAuth()` config. `emailAndPassword` is
+  enabled with `requireEmailVerification: false` and **`disableSignUp:
+  true`** — there is no public registration endpoint. New users only get
+  created via the seed script (see below) or directly in the database.
+  `trustedOrigins` reads the single `TRUSTED_ORIGINS` env var (see the
+  origin-mismatch known issue below). The `User` model has an
+  additional `role` field (`ADMIN` | `AGENT`, default `AGENT`, not
+  settable via user input — only set directly via Prisma, e.g. in the
+  seed script).
+- `server/src/index.ts` mounts Better Auth's handler with
+  `app.all('/api/auth/*splat', toNodeHandler(auth), ...)` **before**
+  `express.json()` is registered — Better Auth parses its own request
+  body, so don't move `express.json()` above it or move auth routes
+  below it.
+- `server/src/middleware/requireAuth.ts` — Express middleware for
+  protecting API routes. Calls `auth.api.getSession()`, attaches
+  `req.user`/`req.session`, and responds `401` if there's no session.
+  Apply it to any route that needs a logged-in user (see `/api/me` in
+  `server/src/index.ts` for the pattern).
+- `client/src/lib/auth-client.ts` — `createAuthClient()` from
+  `better-auth/react` with no explicit `baseURL`, so it makes relative
+  requests from whatever origin the page is served on. This only works
+  because `client/vite.config.ts` proxies `/api/*` to the server on port
+  4000 — the browser never talks to port 4000 directly. Exports
+  `useSession`, `signIn`, `signOut`.
+- `client/src/components/ProtectedRoute.tsx` — client-side route guard;
+  wraps a route element, shows a loading state while `useSession()` is
+  pending, and redirects to `/login` if there's no session.
+- Schema (`server/prisma/schema.prisma`): Better Auth's `User`/
+  `Session`/`Account`/`Verification` models, mapped to lowercase table
+  names (`@@map("user")` etc.) to match Better Auth's Postgres adapter
+  expectations.
+
+**Creating users:** there's no sign-up UI or endpoint. Run the seed
+script from `server/`:
+```
+bun run seed
+```
+It reads `ADMIN_EMAIL`/`ADMIN_PASSWORD` from `server/.env`, and no-ops
+if a user with that email already exists (it does **not** update the
+password on a re-run — if you change `ADMIN_PASSWORD` in `.env` after
+the user already exists, the stored password hash still reflects the
+old value until the user row is deleted and reseeded). It hashes the
+password with `hashPassword` from `better-auth/crypto` directly, so the
+resulting hash is verifiable by Better Auth's own sign-in flow, and
+creates the `Account` row with `providerId: "credential"`.
+
+## UI
+
+`client/` uses shadcn/ui (style `radix-nova`, `neutral` base color — the
+default theme). Config lives in `client/components.json`; generated
+components go in `client/src/components/ui/` and are not meant to be hand-
+edited beyond normal component work. The `@/*` import alias points at
+`client/src` (configured in `tsconfig.json`, `tsconfig.app.json`, and
+`vite.config.ts` — no `baseUrl`, since this project's TypeScript version
+deprecates it and `moduleResolution: "bundler"` supports bare `paths`).
+
+Root `package.json` sets `"packageManager": "bun@1.4.0"` so CLIs that shell
+out to a package manager (like the shadcn CLI) pick bun over npm — npm's
+arborist crashes on this repo's nested Bun workspace layout.
+
+The shadcn CLI's own newer registry has no separate `form` wrapper component
+(dropped when they added multi-library support for base/radix/aria) — pages
+just use `register()` from react-hook-form directly with the raw
+`Input`/`Label` components, as already done elsewhere in this project.
+
+To add more components: `npx shadcn@latest add <component>`. This calls
+`bun add` internally without `--no-save`, so it hits the lockfile bug below —
+see that section's workaround.
+
 ## Known issue: no lockfile
 
 `bun install` on this machine fails when writing `bun.lock`/`bun.lockb`
@@ -81,5 +156,31 @@ bun install --no-save
 This installs packages into `node_modules` normally; it just skips writing
 the lockfile. Dependency versions are still pinned exactly in each
 `package.json` in the meantime.
+
+This also breaks any third-party CLI that shells out to `bun add`/
+`bun install` internally without `--no-save` (e.g. `npx shadcn@latest add
+<component>`). Declaring the package in the relevant `package.json` first
+narrows what the tool still tries to add, but doesn't avoid the crash for
+whatever it always re-adds regardless (e.g. shadcn's CLI always re-adds
+itself as a devDependency). The reliable fix: put a throwaway `bun.cmd` shim
+earlier on `PATH` for that one command that forwards to the real `bun.exe`
+with `--no-save` appended to `add`/`install` (full script in `README.md`'s
+Known Issues section) — it's a wrapper around a build tool, not an
+antivirus change, and it's disposable.
+
+## Known issue: login fails with "Missing or null Origin"
+
+Better Auth (`server/src/auth.ts`) rejects sign-in unless the request's
+Origin header exactly matches `TRUSTED_ORIGINS` in `server/.env` (currently
+`http://localhost:5173`). Vite auto-increments to the next free port
+(5174, 5175, ...) when 5173 is already taken — which happens easily during a
+dev session if an earlier `bun run dev` was left running in another terminal
+(including ones started for testing during a Claude Code session and not
+cleaned up). If login fails with this error, or with a generic-looking
+failure that turns out on inspection (browser Network tab, or a direct
+`curl`/`fetch` to `/api/auth/sign-in/email`) to be a 403 origin rejection,
+check that the browser is actually pointed at `http://localhost:5173` and
+not a stale tab on a different port; free up the lower ports or update
+`TRUSTED_ORIGINS` to match rather than debugging the credentials.
 
 everytime update the ReadMe.md if any important change occurs

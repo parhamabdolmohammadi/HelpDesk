@@ -58,3 +58,14 @@ hardcoded trustedorigin with an environment
 
 - Remove All custom css code and replace it with tailwind css and make sure its exaclty as it was before
 
+11- Installing shadcn
+
+- install shadcn and use defalt theme
+
+- now lets build the login page using shadcn components
+
+- change the color of the navbar to white
+
+- Update the project memory
+
+- add necessary details about athentication in claude.md
