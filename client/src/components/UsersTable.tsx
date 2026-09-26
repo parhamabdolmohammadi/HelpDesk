@@ -1,3 +1,4 @@
+import { EditUserModal } from '@/components/EditUserModal'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export type UserRole = 'ADMIN' | 'AGENT'
@@ -26,6 +27,9 @@ export function UsersTable({ users, isPending }: UsersTableProps) {
               <th className="px-4 py-2 font-medium">Email</th>
               <th className="px-4 py-2 font-medium">Role</th>
               <th className="px-4 py-2 font-medium">Created</th>
+              <th className="px-4 py-2 font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -42,6 +46,9 @@ export function UsersTable({ users, isPending }: UsersTableProps) {
                 </td>
                 <td className="px-4 py-2">
                   <Skeleton className="h-4 w-20" />
+                </td>
+                <td className="px-4 py-2">
+                  <Skeleton className="h-7 w-7" />
                 </td>
               </tr>
             ))}
@@ -64,6 +71,9 @@ export function UsersTable({ users, isPending }: UsersTableProps) {
             <th className="px-4 py-2 font-medium">Email</th>
             <th className="px-4 py-2 font-medium">Role</th>
             <th className="px-4 py-2 font-medium">Created</th>
+            <th className="px-4 py-2 font-medium">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -85,11 +95,14 @@ export function UsersTable({ users, isPending }: UsersTableProps) {
               <td className="px-4 py-2">
                 {new Date(user.createdAt).toLocaleDateString()}
               </td>
+              <td className="px-4 py-2">
+                <EditUserModal user={user} />
+              </td>
             </tr>
           ))}
           {users.length === 0 && (
             <tr>
-              <td className="px-4 py-3 text-muted-foreground" colSpan={4}>
+              <td className="px-4 py-3 text-muted-foreground" colSpan={5}>
                 No users found.
               </td>
             </tr>

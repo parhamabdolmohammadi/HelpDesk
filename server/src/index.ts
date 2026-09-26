@@ -50,9 +50,16 @@ app.use('/api/users', usersRouter)
 // this error handler automatically, so routes don't need their own
 // try/catch just to translate an error into a response.
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-    res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
-    return
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
+      return
+    }
+
+    if (err.code === 'P2025') {
+      res.status(404).json({ status: 'error', message: 'User not found' })
+      return
+    }
   }
 
   console.error(err)

@@ -237,11 +237,18 @@ on both ends, like an API request body that's also a form.
 
 - **Client:** form input, via `react-hook-form`'s `zodResolver` passed a
   `core` schema — see `client/src/pages/Login.tsx` (a login-only shape, not
-  shared, so defined locally) and `client/src/components/CreateUserModal.tsx`
-  (imports `createUserSchema` from `core`).
+  shared, so defined locally), `client/src/components/CreateUserModal.tsx`
+  (`createUserSchema`, password required), and
+  `client/src/components/EditUserModal.tsx` (`updateUserSchema`, password
+  optional — blank means "don't change it"). Both modals render their
+  fields via the shared `client/src/components/UserFormFields.tsx` rather
+  than each declaring their own `Name`/`Email`/`Password` JSX; it's generic
+  over the form's value type (constrained to
+  `{ name, email, password? }`) so it works with either schema's inferred
+  type.
 - **Server:** request bodies, via `schema.safeParse(req.body)` using the
   same imported schema, returning the first issue's message on `400` — see
-  `usersRouter`'s `POST /` in `server/src/routes/users.ts`:
+  `usersRouter`'s `POST /` and `PATCH /:id` in `server/src/routes/users.ts`:
   ```ts
   import { createUserSchema } from 'core'
 
@@ -254,6 +261,17 @@ on both ends, like an API request body that's also a form.
   New request-body-accepting routes should follow this pattern — add the
   schema to `core` if the client validates the same shape, otherwise define
   it locally in the route file — rather than adding ad hoc inline checks.
+- `core/src/schemas/user.ts` factors the `name`/`email` checks (identical
+  between create and update) into local, unexported `nameSchema`/
+  `emailSchema` constants that both `createUserSchema` and
+  `updateUserSchema` build on — a case where a schema is shared within
+  `core` itself, not just between `client` and `server`. `updateUserSchema`
+  makes `password` optional and only enforces the min-length check when a
+  value is actually given (`.refine((v) => !v || v.length >= 8, ...)`), so
+  an empty/omitted password means "leave it unchanged" both in validation
+  and in `usersRouter`'s `PATCH /:id` handler (`if (password) { ...update
+  the Account row... }`) — the falsy check is deliberately the same on
+  both sides.
 
 ## Error handling
 
@@ -271,9 +289,16 @@ A single error-handling middleware, registered last in `server/src/index.ts`
 response:
 ```ts
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-    res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
-    return
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      res.status(409).json({ status: 'error', message: 'A user with this email already exists' })
+      return
+    }
+
+    if (err.code === 'P2025') {
+      res.status(404).json({ status: 'error', message: 'User not found' })
+      return
+    }
   }
 
   console.error(err)
@@ -281,9 +306,10 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 })
 ```
 A route that needs to turn a specific failure into a specific status code
-(e.g. `P2002` → `409`) still does that in this shared middleware, not with
-its own `try`/`catch` — add another `if` branch here rather than
-reintroducing per-route error handling.
+(e.g. `P2002` → `409`, or Prisma's "record to update not found" `P2025` →
+`404` for `PATCH /:id` on a nonexistent user) still does that in this
+shared middleware, not with its own `try`/`catch` — add another `if`
+branch here rather than reintroducing per-route error handling.
 
 ## Security middleware
 

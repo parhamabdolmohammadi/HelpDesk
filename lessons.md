@@ -229,3 +229,9 @@ in the database and hide the modal.)
 is shown. and that it gets hidden when we click outside or press esc.
 
 - write unit tests for create user form
+
+10 - Editing Users
+
+- add the ability to edit users.
+
+in the users table, add a edit button  with an icon to each row. when clicked, show the user form in a dialog box populated with users data. if the password is provided use it to change user's password. otherwise dont change the password.

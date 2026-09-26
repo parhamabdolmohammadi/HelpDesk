@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { renderWithQuery } from '../test/render-with-query'
 import { UsersTable } from './UsersTable'
 
 const sampleUsers = [
@@ -21,20 +22,20 @@ const sampleUsers = [
 
 describe('UsersTable', () => {
   it('renders loading skeleton rows while pending', () => {
-    render(<UsersTable users={undefined} isPending />)
+    renderWithQuery(<UsersTable users={undefined} isPending />)
 
     expect(screen.getByRole('table')).toBeInTheDocument()
     expect(screen.queryByText('admin@example.com')).not.toBeInTheDocument()
   })
 
   it('renders nothing when not pending and no users are available yet', () => {
-    render(<UsersTable users={undefined} isPending={false} />)
+    renderWithQuery(<UsersTable users={undefined} isPending={false} />)
 
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
   it('renders the users, falling back to — for a null name', () => {
-    render(<UsersTable users={sampleUsers} isPending={false} />)
+    renderWithQuery(<UsersTable users={sampleUsers} isPending={false} />)
 
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
     expect(screen.getByText('Admin User')).toBeInTheDocument()
@@ -43,7 +44,7 @@ describe('UsersTable', () => {
   })
 
   it('styles the ADMIN badge differently from AGENT', () => {
-    render(<UsersTable users={sampleUsers} isPending={false} />)
+    renderWithQuery(<UsersTable users={sampleUsers} isPending={false} />)
 
     const adminBadge = screen.getByText('ADMIN')
     const agentBadge = screen.getByText('AGENT')
@@ -53,8 +54,15 @@ describe('UsersTable', () => {
   })
 
   it('shows an empty state when there are no users', () => {
-    render(<UsersTable users={[]} isPending={false} />)
+    renderWithQuery(<UsersTable users={[]} isPending={false} />)
 
     expect(screen.getByText('No users found.')).toBeInTheDocument()
+  })
+
+  it('renders an edit button for each user', () => {
+    renderWithQuery(<UsersTable users={sampleUsers} isPending={false} />)
+
+    expect(screen.getByRole('button', { name: 'Edit Admin User' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit agent@example.com' })).toBeInTheDocument()
   })
 })

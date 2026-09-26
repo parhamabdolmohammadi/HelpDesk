@@ -50,16 +50,41 @@ core/     Zod schemas shared by client and server
   shadcn/ui `Skeleton` rows while `isPending`, `null` if not pending and
   `users` isn't loaded yet, otherwise the name/email/role/created-date
   rows (falling back to `—` for a null name, "No users found." when the
-  array is empty, and a differently-styled badge for `ADMIN` vs `AGENT`)
+  array is empty, and a differently-styled badge for `ADMIN` vs `AGENT`),
+  plus an `EditUserModal` per row in a trailing actions column (its header
+  cell is a visually-hidden "Actions" label, since the column has no
+  visible heading otherwise)
+- `client/src/components/UserFormFields.tsx` — the `Name`/`Email`/
+  `Password` inputs (with labels and Zod error messages) shared by
+  `CreateUserModal` and `EditUserModal`, so the two forms can't visually
+  or structurally drift apart. Generic over the form's value type
+  (constrained to `{ name, email, password? }`, matching both
+  `CreateUserInput` and `UpdateUserInput` from `core`); takes
+  `passwordAutoComplete` and an optional `passwordHint` (used by the edit
+  form to show "Leave blank to keep the current password") so the one
+  difference between the two forms' password fields doesn't need two
+  copies of the field markup.
 - `client/src/components/CreateUserModal.tsx` — "New user" button (shadcn
-  `Dialog`) that opens a form (name/email/password) using react-hook-form +
-  the shared `createUserSchema` from `core` (name min 3 chars, password min
-  8 chars — see `core/src/schemas/user.ts` and Data validation in
-  `CLAUDE.md`), submits via a TanStack Query `useMutation` to
-  `POST /api/users`, invalidates the `['users']` query on success, and
-  closes the dialog. New users are always created with the `AGENT` role —
-  role isn't a form field, since it isn't settable via user input (see
-  Authorization in `CLAUDE.md`)
+  `Dialog`) that opens a form using react-hook-form + the shared
+  `createUserSchema` from `core` (name min 3 chars, password min 8 chars —
+  see `core/src/schemas/user.ts` and Data validation in `CLAUDE.md`),
+  submits via a TanStack Query `useMutation` to `POST /api/users`,
+  invalidates the `['users']` query on success, and closes the dialog. New
+  users are always created with the `AGENT` role — role isn't a form
+  field, since it isn't settable via user input (see Authorization in
+  `CLAUDE.md`)
+- `client/src/components/EditUserModal.tsx` — a `Pencil`-icon (lucide)
+  button per row (`aria-label="Edit {name-or-email}"`, since it has no
+  visible text) that opens a form pre-filled from its `user` prop, using
+  the shared `updateUserSchema` from `core` (same name/email rules as
+  create; password is optional — leaving it blank means "don't change
+  it"). Resets to the user's current values each time it's opened
+  (`reset(...)` in `onOpenChange`, not a continuously-synced `values`
+  option) so an unrelated background refetch can't clobber an in-progress
+  edit. Submits via `PATCH /api/users/:id`, sending `password: ''` when
+  left blank (the server treats an empty/falsy password as "unchanged");
+  invalidates `['users']` and closes on success. Role isn't a form field
+  here either — it can't be changed from this dialog.
 - `client/src/App.tsx` — wraps the router in a `QueryClientProvider`, with
   the `QueryClient` instance held in `useState(() => new QueryClient())` so
   it's created once and stays stable across re-renders
@@ -86,7 +111,8 @@ core/     Zod schemas shared by client and server
   the session's `token` field would otherwise defeat the session cookie's
   `httpOnly` protection. Also defines the single error-handling middleware,
   registered last: translates a Prisma `P2002` (unique constraint) into
-  `409`, and falls back to `500` otherwise — the one place that turns a
+  `409`, a Prisma `P2025` (record to update not found) into `404`, and
+  falls back to `500` otherwise — the one place that turns a
   thrown/rejected error into a response, since Express 5 forwards a
   rejected promise from an `async` handler to it automatically, so route
   handlers don't need their own `try`/`catch` (see Error handling in
@@ -110,20 +136,32 @@ core/     Zod schemas shared by client and server
   `credential` `Account` row in a transaction (mirroring `seed.ts`'s
   `hashPassword` + `Account` pattern), and returns `201` with the created
   user, `400` on invalid input (the first Zod issue's message), or `409` on
-  a duplicate email via `index.ts`'s error-handling middleware
+  a duplicate email via `index.ts`'s error-handling middleware. `PATCH /:id`
+  validates with `updateUserSchema` (same shape, but `password` optional),
+  updates the `User`'s `name`/`email`, and only touches the `credential`
+  `Account`'s password (`tx.account.updateMany`) when `password` is
+  truthy — an empty string or missing field leaves the stored password
+  untouched. Returns `404` (via the same error-handling middleware,
+  reacting to Prisma's `P2025`) if the `id` doesn't exist. Neither route
+  accepts `role` — it's not part of either schema, so it can't be changed
+  through this API
 - `server/src/trustedOrigins.ts` — the single source of truth for allowed
   origins (`TRUSTED_ORIGINS` env var, defaulting to
   `http://localhost:5173`), imported by both `auth.ts` (Better Auth's
   `trustedOrigins`) and `index.ts` (the `cors()` origin) so they can't
   drift out of sync
-- `core/src/schemas/user.ts` — `createUserSchema` (and its inferred
-  `CreateUserInput` type), re-exported from `core/src/index.ts`. Imported
-  as the `core` workspace package (`"core": "workspace:*"` in both
-  `client/package.json` and `server/package.json`) by
-  `CreateUserModal.tsx` and `usersRouter`, so the two sides can't drift
-  out of sync on what a valid new user looks like. `core` has no build
-  step — both consumers resolve and transform its `.ts` source directly
-  (Vite via `@fs`, Bun natively)
+- `core/src/schemas/user.ts` — `createUserSchema`/`updateUserSchema` (and
+  their inferred `CreateUserInput`/`UpdateUserInput` types), re-exported
+  from `core/src/index.ts`. Both build on local, unexported
+  `nameSchema`/`emailSchema` constants (identical rules for create and
+  update); `updateUserSchema` additionally makes `password` optional,
+  enforcing the min-length rule only when a value is actually given.
+  Imported as the `core` workspace package (`"core": "workspace:*"` in
+  both `client/package.json` and `server/package.json`) by
+  `CreateUserModal.tsx`/`EditUserModal.tsx` and `usersRouter`, so the two
+  sides can't drift out of sync on what a valid user looks like. `core`
+  has no build step — both consumers resolve and transform its `.ts`
+  source directly (Vite via `@fs`, Bun natively)
 - `server/prisma/schema.prisma` — data model (`User`, `Ticket`, plus Better
   Auth's `Session`/`Account`/`Verification`)
 - `playwright.config.ts` (repo root) — starts the server (port `4100`) and
@@ -279,12 +317,14 @@ cleanup when it detects a global `afterEach`).
   so these tests are really guarding against a future change (e.g. a
   `onPointerDownOutside`/`onEscapeKeyDown` override) accidentally
   disabling it.
-- `client/src/components/UsersTable.test.tsx` — plain `render` (no
-  `renderWithQuery` needed; `UsersTable` takes `users`/`isPending` as
-  props, it doesn't fetch) covering its states directly: loading
-  skeletons, `null` when not pending with no `users` yet, the fetched rows
-  (including the `—` fallback for a null `name`), the `ADMIN` vs `AGENT`
-  badge styling, and the empty state.
+- `client/src/components/UsersTable.test.tsx` — uses `renderWithQuery`
+  (needed now that each row's `EditUserModal` calls `useQueryClient`, even
+  though `UsersTable` itself still just takes `users`/`isPending` as props
+  and doesn't fetch) covering its states directly: loading skeletons,
+  `null` when not pending with no `users` yet, the fetched rows (including
+  the `—` fallback for a null `name`), the `ADMIN` vs `AGENT` badge
+  styling, the empty state, and that each row has its own edit button
+  (`getByRole('button', { name: 'Edit <name-or-email>' })`).
 - `client/src/components/CreateUserModal.test.tsx` — mocks `axios` (`post` +
   `isAxiosError`) and drives the dialog with `@testing-library/user-event`:
   opening it, the Zod validation messages for a short name/password and an
@@ -294,6 +334,16 @@ cleanup when it detects a global `afterEach`).
   flight (a manually-resolved `Promise` held open mid-test), the error
   alert on a rejected request (e.g. duplicate email), and the form/error
   resetting when the dialog is closed (`Escape`) and reopened.
+- `client/src/components/EditUserModal.test.tsx` — same approach, mocking
+  `axios.patch` instead of `axios.post`: opens pre-filled with the given
+  user's name/email and a blank password (plus the "Leave blank to keep
+  the current password" hint), the same name/email validation messages,
+  rejecting a too-short password while still allowing a blank one, a
+  submit with a blank password sending `password: ''` to `PATCH
+  /api/users/:id` (name/email only change), a submit with a password
+  including it in the request, the error alert on a rejected request, and
+  resetting to the user's current data (not a blank form, unlike create)
+  when closed and reopened.
 
 **Running tests:**
 ```
