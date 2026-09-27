@@ -16,14 +16,17 @@ const listTicketsQuerySchema = z.object({
   // email is left uncategorized until a human or future AI step sets one.
   category: z.enum(['GENERAL_QUESTION', 'TECHNICAL_QUESTION', 'REFUND_REQUEST', 'UNCLASSIFIED']).optional(),
   search: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).optional().default(10),
 })
 
 // requireAuth only, no requireRole — any logged-in user (AGENT or ADMIN)
 // can view the ticket list, unlike usersRouter which is admin-only.
-// Sorting and filtering both happen here, in the Prisma query, not
-// client-side — sortBy/status/category are checked against enums above
-// (not raw user input) before they ever reach `where`/`orderBy`, so they
-// can't be used to inject an arbitrary column or condition.
+// Sorting, filtering, and pagination all happen here, in the Prisma
+// query, not client-side — sortBy/status/category are checked against
+// enums above (not raw user input) before they ever reach
+// `where`/`orderBy`, so they can't be used to inject an arbitrary column
+// or condition.
 ticketsRouter.get('/', requireAuth, async (req, res) => {
   const parsed = listTicketsQuerySchema.safeParse(req.query)
 
@@ -32,7 +35,7 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
     return
   }
 
-  const { sortBy, sortOrder, status, category, search } = parsed.data
+  const { sortBy, sortOrder, status, category, search, page, pageSize } = parsed.data
 
   const where: Prisma.TicketWhereInput = {
     ...(status && { status }),
@@ -45,20 +48,25 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
     }),
   }
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    orderBy: { [sortBy]: sortOrder },
-    select: {
-      id: true,
-      subject: true,
-      requesterEmail: true,
-      status: true,
-      category: true,
-      createdAt: true,
-    },
-  })
+  const [tickets, totalCount] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        subject: true,
+        requesterEmail: true,
+        status: true,
+        category: true,
+        createdAt: true,
+      },
+    }),
+    prisma.ticket.count({ where }),
+  ])
 
-  res.json({ tickets })
+  res.json({ tickets, totalCount })
 })
 
 const inboundEmailSchema = z.object({

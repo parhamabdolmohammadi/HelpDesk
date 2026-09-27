@@ -270,3 +270,7 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 7 - filtering Tickets
 
 - add filtering
+
+8 - Add Pagination
+
+- add pagination

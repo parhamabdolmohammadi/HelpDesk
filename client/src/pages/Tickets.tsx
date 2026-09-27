@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import type { SortingState } from '@tanstack/react-table'
+import type { PaginationState, SortingState } from '@tanstack/react-table'
 import axios from 'axios'
 import { useEffect, useState } from 'react'
 import { NavBar } from '../components/NavBar'
@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function Tickets() {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [status, setStatus] = useState('')
   const [category, setCategory] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -25,24 +26,32 @@ export function Tickets() {
   const sortBy = sorting[0]?.id ?? 'createdAt'
   const sortOrder = sorting[0]?.desc ? 'desc' : 'asc'
 
+  // Changing sort/filters can leave the current page out of range for the
+  // new result set, so jump back to page 1 whenever any of them change.
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }, [sortBy, sortOrder, status, category, search])
+
   const {
-    data: tickets,
+    data,
     isPending,
     isError,
   } = useQuery({
-    queryKey: ['tickets', sortBy, sortOrder, status, category, search],
+    queryKey: ['tickets', sortBy, sortOrder, status, category, search, pagination.pageIndex, pagination.pageSize],
     queryFn: async () => {
-      const response = await axios.get<{ tickets: TicketListItem[] }>('/api/tickets', {
+      const response = await axios.get<{ tickets: TicketListItem[]; totalCount: number }>('/api/tickets', {
         params: {
           sortBy,
           sortOrder,
           status: status || undefined,
           category: category || undefined,
           search: search || undefined,
+          page: pagination.pageIndex + 1,
+          pageSize: pagination.pageSize,
         },
         withCredentials: true,
       })
-      return response.data.tickets
+      return response.data
     },
     placeholderData: keepPreviousData,
   })
@@ -72,7 +81,15 @@ export function Tickets() {
           )}
 
           {!isError && (
-            <TicketsTable tickets={tickets} isPending={isPending} sorting={sorting} onSortingChange={setSorting} />
+            <TicketsTable
+              tickets={data?.tickets}
+              isPending={isPending}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              pagination={pagination}
+              onPaginationChange={setPagination}
+              rowCount={data?.totalCount ?? 0}
+            />
           )}
         </div>
       </main>

@@ -2,10 +2,13 @@ import {
   createColumnHelper,
   tableFeatures,
   rowSortingFeature,
+  rowPaginationFeature,
   useTable,
+  type PaginationState,
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type TicketStatus = "OPEN" | "RESOLVED" | "CLOSED";
@@ -29,6 +32,9 @@ type TicketsTableProps = {
   isPending: boolean;
   sorting: SortingState;
   onSortingChange: React.Dispatch<React.SetStateAction<SortingState>>;
+  pagination: PaginationState;
+  onPaginationChange: React.Dispatch<React.SetStateAction<PaginationState>>;
+  rowCount: number;
 };
 
 const statusStyles: Record<TicketStatus, string> = {
@@ -50,12 +56,14 @@ function formatCategory(category: TicketCategory): string {
     .join(" ");
 }
 
-// Sorting is server-side (see Tickets.tsx / GET /api/tickets): this table
-// only registers rowSortingFeature for the column APIs (getIsSorted,
-// getToggleSortingHandler) and hoists `sorting` into external state via
-// manualSorting — it never sorts `tickets` itself, it just displays
-// whatever order the server already returned it in.
-const features = tableFeatures({ rowSortingFeature });
+// Sorting and pagination are both server-side (see Tickets.tsx / GET
+// /api/tickets): this table only registers rowSortingFeature/
+// rowPaginationFeature for their column/table APIs (getIsSorted,
+// getToggleSortingHandler, previousPage, nextPage, ...) and hoists both
+// `sorting` and `pagination` into external state via manualSorting/
+// manualPagination — it never sorts or slices `tickets` itself, it just
+// displays whatever page the server already returned.
+const features = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 
 const columnHelper = createColumnHelper<typeof features, TicketListItem>();
 
@@ -87,14 +95,20 @@ export function TicketsTable({
   isPending,
   sorting,
   onSortingChange,
+  pagination,
+  onPaginationChange,
+  rowCount,
 }: TicketsTableProps) {
   const table = useTable({
     features,
     columns,
     data: tickets ?? [],
     manualSorting: true,
-    state: { sorting },
+    manualPagination: true,
+    rowCount,
+    state: { sorting, pagination },
     onSortingChange,
+    onPaginationChange,
   });
 
   if (isPending) {
@@ -137,7 +151,8 @@ export function TicketsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+    <>
+      <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
       <table className="w-full text-left text-sm">
         <thead className="bg-muted/50 text-muted-foreground">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -190,6 +205,34 @@ export function TicketsTable({
           )}
         </tbody>
       </table>
-    </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+        <span>
+          Page {pagination.pageIndex + 1} of{" "}
+          {Math.max(table.getPageCount(), 1)} ({rowCount} tickets)
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }
