@@ -166,6 +166,62 @@ neither alone is sufficient, and new admin-only features need both:
   schema's `@default(AGENT)`) and `seed.ts`, which follows the same
   pattern.
 
+## Email ingestion
+
+Tickets can be created from an inbound support email via a provider-
+agnostic webhook — no email provider (SendGrid/Mailgun/Postmark) is wired
+up yet. Whichever provider gets picked later needs a thin adapter that
+reshapes its own webhook payload into this endpoint's JSON shape and POSTs
+it here; this endpoint itself shouldn't need to change.
+
+- `server/src/routes/tickets.ts` — `ticketsRouter`, mounted at
+  `/api/tickets`. `POST /inbound-email` is its only route right now.
+  Unlike `usersRouter`, this router has **no router-wide auth guard** —
+  the route is called by an external system with no user session. Any
+  future ticket CRUD routes added to this router must apply
+  `requireAuth`/`requireRole` per-route, not via
+  `ticketsRouter.use(...)`, or the webhook would start requiring a login
+  session too.
+- `server/src/middleware/requireInboundEmailSecret.ts` — the webhook's
+  auth: compares an `X-Webhook-Secret` request header against
+  `process.env.INBOUND_EMAIL_WEBHOOK_SECRET` using
+  `crypto.timingSafeEqual` (with a length check first, since
+  `timingSafeEqual` throws rather than returning `false` on a length
+  mismatch). Responds `500` if the server itself has no secret configured
+  (fail closed) and `401` on a missing/wrong secret. This is a stand-in
+  for a real provider's signature verification (e.g. Mailgun's HMAC
+  signing) — when a provider is chosen, only this file's internals need
+  to change, not the route's call site.
+- The inbound-email request body is validated with a Zod schema defined
+  locally in `tickets.ts`, not moved to `core/` — per the Data validation
+  convention above, `core/` is only for shapes validated on both client
+  and server, and this payload is never sent by the client.
+- `TicketMessage` (in `server/prisma/schema.prisma`) stores each inbound
+  email: `fromEmail`, `senderName` (the human-readable display name,
+  distinct from the address), and `body`, related to its `Ticket`. It's a
+  separate model rather than extra columns on `Ticket` so outbound replies
+  and threading can be added later without another breaking migration.
+  Its `id` is `Int @id @default(autoincrement())` — a deliberate one-off
+  deviation from the cuid-string ids every other model in this schema
+  uses, scoped to just this model.
+- **Same-thread matching**: before creating a ticket, `tickets.ts` looks
+  for an existing ticket from the same `requesterEmail` (case-insensitive)
+  with the same subject — ignoring leading `Re:`/`Fwd:` prefixes and case,
+  via the local `normalizeSubject()` helper — that is still `status:
+  OPEN`. If found, the inbound email is appended as a new `TicketMessage`
+  on that ticket instead of creating a new one. A `RESOLVED`/`CLOSED`
+  ticket is deliberately never matched — a new email on that subject
+  starts a fresh ticket rather than silently reopening a closed
+  conversation. This is still not real `In-Reply-To`/`Message-ID` header
+  threading (no such headers exist in this provider-agnostic payload) —
+  just a same-sender/same-subject heuristic.
+- `Ticket.category` is optional (`TicketCategory?`), not required — an
+  email-created ticket is left with `category: null` since there's no AI
+  classification yet; a human (or a future classification step) sets it
+  later.
+- New env var: `INBOUND_EMAIL_WEBHOOK_SECRET` (see `server/.env.example`)
+  — set a real, high-entropy value in your own `server/.env`.
+
 ## UI
 
 `client/` uses shadcn/ui (style `radix-nova`, `neutral` base color — the

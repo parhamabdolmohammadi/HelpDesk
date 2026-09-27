@@ -8,6 +8,7 @@ import { prisma } from './db.ts'
 import { auth } from './auth.ts'
 import { requireAuth } from './middleware/requireAuth.ts'
 import { usersRouter } from './routes/users.ts'
+import { ticketsRouter } from './routes/tickets.ts'
 import { trustedOrigins } from './trustedOrigins.ts'
 
 const app = express()
@@ -45,6 +46,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 })
 
 app.use('/api/users', usersRouter)
+app.use('/api/tickets', ticketsRouter)
 
 // Express 5 forwards a rejected promise from any route/middleware above to
 // this error handler automatically, so routes don't need their own

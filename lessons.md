@@ -239,3 +239,20 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 13- deleting users
 
 - Add the ability to delete users. show a modal for confirmation. admin cannot be deleted. implement soft deletion. if a user is soft deleted their session is invalidated so theypre logged out right away
+
+15 - e2e tests
+
+- write e2e tests for the user management. focus only on happy paths. include tests for all  crud operations.
+  
+- run e2e tests
+
+- run unit tests
+
+
+## Authentication
+
+### Sessions
+
+2 - Receiving Tickets
+
+-Add the ability to receive an email at a support address and convert it to a ticket (plan mode)

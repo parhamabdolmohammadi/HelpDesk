@@ -46,15 +46,27 @@ model User {
 }
 
 model Ticket {
-  id             String         @id @default(cuid())
+  id             String          @id @default(cuid())
   subject        String
   requesterEmail String
-  status         TicketStatus   @default(OPEN)
-  category       TicketCategory
-  assignee       User?          @relation(fields: [assigneeId], references: [id])
+  status         TicketStatus    @default(OPEN)
+  category       TicketCategory?
+  assignee       User?           @relation(fields: [assigneeId], references: [id])
   assigneeId     String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  messages       TicketMessage[]
+}
+
+model TicketMessage {
+  id         Int      @id @default(autoincrement())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+  fromEmail  String
+  senderName String
+  body       String
+  createdAt  DateTime @default(now())
 }
 
 model Session {
