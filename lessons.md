@@ -279,3 +279,6 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 
 - on the ticket list, when we click on the subject of a ticket, we should see the ticket details in a separate page
 
+11 - Assigning Tickets
+
+- add the ability to assign tickets to an agent

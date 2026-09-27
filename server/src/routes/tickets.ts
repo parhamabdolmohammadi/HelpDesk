@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
-import type { Prisma } from '../generated/prisma/client.ts'
+import { UserRole, type Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
 import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecret.ts'
@@ -69,12 +69,29 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
   res.json({ tickets, totalCount })
 })
 
+// Declared before GET /:id so 'agents' isn't captured as an :id value.
+// requireAuth only — any logged-in user needs this list to populate the
+// assignee dropdown, not just admins (unlike usersRouter's admin-only
+// user list).
+ticketsRouter.get('/agents', requireAuth, async (_req, res) => {
+  const agents = await prisma.user.findMany({
+    where: { role: UserRole.AGENT, deletedAt: null },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' },
+  })
+
+  res.json({ agents })
+})
+
 // requireAuth only, matching GET / above — any logged-in user can view a
 // ticket's details, not just admins.
 ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
   const ticket = await prisma.ticket.findUnique({
     where: { id: req.params.id },
-    include: { messages: { orderBy: { createdAt: 'asc' } } },
+    include: {
+      messages: { orderBy: { createdAt: 'asc' } },
+      assignee: { select: { id: true, name: true, email: true } },
+    },
   })
 
   if (!ticket) {
@@ -83,6 +100,52 @@ ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res:
   }
 
   res.json({ ticket })
+})
+
+const assignTicketSchema = z.object({
+  // null unassigns the ticket; omitting the field entirely is not allowed,
+  // to keep the intent of the request explicit.
+  assigneeId: z.string().min(1).nullable(),
+})
+
+// requireAuth only, matching the other ticket routes — any logged-in user
+// can assign a ticket, not just admins. Only AGENT-role users can be
+// assignees (see GET /agents above), so this re-validates assigneeId
+// against the same role/deletedAt condition rather than trusting the id
+// the client sent.
+ticketsRouter.patch('/:id/assignee', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const parsed = assignTicketSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  const { assigneeId } = parsed.data
+
+  if (assigneeId) {
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } })
+
+    if (!assignee || assignee.deletedAt || assignee.role !== UserRole.AGENT) {
+      res.status(400).json({ status: 'error', message: 'Assignee not found' })
+      return
+    }
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  const updated = await prisma.ticket.update({
+    where: { id: req.params.id },
+    data: { assigneeId },
+    include: { assignee: { select: { id: true, name: true, email: true } } },
+  })
+
+  res.json({ ticket: updated })
 })
 
 const inboundEmailSchema = z.object({

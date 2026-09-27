@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { NavBar } from '../components/NavBar'
+import { TicketAssigneeSelect } from '../components/TicketAssigneeSelect'
 import {
   formatCategory,
   statusStyles,
@@ -26,7 +27,7 @@ type TicketDetail = {
   requesterEmail: string
   status: TicketStatus
   category: TicketCategory
-  assigneeId: string | null
+  assignee: { id: string; name: string | null; email: string } | null
   createdAt: string
   updatedAt: string
   messages: TicketMessage[]
@@ -100,8 +101,8 @@ export function TicketDetail() {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Assigned to</dt>
-                  <dd className="mt-0.5 text-foreground">
-                    {data.assigneeId ?? 'Unassigned'}
+                  <dd className="mt-1">
+                    <TicketAssigneeSelect ticketId={data.id} assigneeId={data.assignee?.id ?? null} />
                   </dd>
                 </div>
                 <div>
