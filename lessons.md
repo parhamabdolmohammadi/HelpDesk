@@ -266,3 +266,7 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 - add sorting to tickets table using tanstack table. sorting should happen on the server SOTING SHOULD HAPPEN ON THE SERVER.   YOUR BIGGEST iSSUE
 
 - create 100 tickets using real - life example so we can see sorting and filtering
+
+7 - filtering Tickets
+
+- add filtering

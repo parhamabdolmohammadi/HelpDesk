@@ -1,42 +1,53 @@
-import { createColumnHelper, tableFeatures, rowSortingFeature, useTable, type SortingState } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+  createColumnHelper,
+  tableFeatures,
+  rowSortingFeature,
+  useTable,
+  type SortingState,
+} from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export type TicketStatus = 'OPEN' | 'RESOLVED' | 'CLOSED'
-export type TicketCategory = 'GENERAL_QUESTION' | 'TECHNICAL_QUESTION' | 'REFUND_REQUEST' | null
+export type TicketStatus = "OPEN" | "RESOLVED" | "CLOSED";
+export type TicketCategory =
+  | "GENERAL_QUESTION"
+  | "TECHNICAL_QUESTION"
+  | "REFUND_REQUEST"
+  | null;
 
 export type TicketListItem = {
-  id: string
-  subject: string
-  requesterEmail: string
-  status: TicketStatus
-  category: TicketCategory
-  createdAt: string
-}
+  id: string;
+  subject: string;
+  requesterEmail: string;
+  status: TicketStatus;
+  category: TicketCategory;
+  createdAt: string;
+};
 
 type TicketsTableProps = {
-  tickets: TicketListItem[] | undefined
-  isPending: boolean
-  sorting: SortingState
-  onSortingChange: React.Dispatch<React.SetStateAction<SortingState>>
-}
+  tickets: TicketListItem[] | undefined;
+  isPending: boolean;
+  sorting: SortingState;
+  onSortingChange: React.Dispatch<React.SetStateAction<SortingState>>;
+};
 
 const statusStyles: Record<TicketStatus, string> = {
-  OPEN: 'bg-primary text-primary-foreground',
-  RESOLVED: 'bg-muted text-muted-foreground',
-  CLOSED: 'bg-muted text-muted-foreground',
-}
+  OPEN: "bg-primary text-primary-foreground",
+  RESOLVED: "bg-muted text-muted-foreground",
+  CLOSED: "bg-muted text-muted-foreground",
+};
 
 function formatCategory(category: TicketCategory): string {
   if (!category) {
-    return '—'
+    return "—";
   }
 
   return category
+
     .toLowerCase()
-    .split('_')
+    .split("_")
     .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(' ')
+    .join(" ");
 }
 
 // Sorting is server-side (see Tickets.tsx / GET /api/tickets): this table
@@ -44,15 +55,15 @@ function formatCategory(category: TicketCategory): string {
 // getToggleSortingHandler) and hoists `sorting` into external state via
 // manualSorting — it never sorts `tickets` itself, it just displays
 // whatever order the server already returned it in.
-const features = tableFeatures({ rowSortingFeature })
+const features = tableFeatures({ rowSortingFeature });
 
-const columnHelper = createColumnHelper<typeof features, TicketListItem>()
+const columnHelper = createColumnHelper<typeof features, TicketListItem>();
 
 const columns = columnHelper.columns([
-  columnHelper.accessor('subject', { header: 'Subject' }),
-  columnHelper.accessor('requesterEmail', { header: 'Requester' }),
-  columnHelper.accessor('status', {
-    header: 'Status',
+  columnHelper.accessor("subject", { header: "Subject" }),
+  columnHelper.accessor("requesterEmail", { header: "Requester" }),
+  columnHelper.accessor("status", {
+    header: "Status",
     cell: (info) => (
       <span
         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[info.getValue()]}`}
@@ -61,17 +72,22 @@ const columns = columnHelper.columns([
       </span>
     ),
   }),
-  columnHelper.accessor('category', {
-    header: 'Category',
+  columnHelper.accessor("category", {
+    header: "Category",
     cell: (info) => formatCategory(info.getValue()),
   }),
-  columnHelper.accessor('createdAt', {
-    header: 'Created',
+  columnHelper.accessor("createdAt", {
+    header: "Created",
     cell: (info) => new Date(info.getValue()).toLocaleDateString(),
   }),
-])
+]);
 
-export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: TicketsTableProps) {
+export function TicketsTable({
+  tickets,
+  isPending,
+  sorting,
+  onSortingChange,
+}: TicketsTableProps) {
   const table = useTable({
     features,
     columns,
@@ -79,7 +95,7 @@ export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: T
     manualSorting: true,
     state: { sorting },
     onSortingChange,
-  })
+  });
 
   if (isPending) {
     return (
@@ -117,7 +133,7 @@ export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: T
           </tbody>
         </table>
       </div>
-    )
+    );
   }
 
   return (
@@ -132,7 +148,7 @@ export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: T
                     <button
                       type="button"
                       className={`flex items-center gap-1 transition-colors hover:text-foreground disabled:cursor-default disabled:hover:text-inherit ${
-                        header.column.getIsSorted() ? 'font-bold' : ''
+                        header.column.getIsSorted() ? "font-bold" : ""
                       }`}
                       disabled={!header.column.getCanSort()}
                       onClick={header.column.getToggleSortingHandler()}
@@ -164,7 +180,10 @@ export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: T
           ))}
           {tickets && tickets.length === 0 && (
             <tr>
-              <td className="px-4 py-3 text-muted-foreground" colSpan={columns.length}>
+              <td
+                className="px-4 py-3 text-muted-foreground"
+                colSpan={columns.length}
+              >
                 No tickets found.
               </td>
             </tr>
@@ -172,5 +191,5 @@ export function TicketsTable({ tickets, isPending, sorting, onSortingChange }: T
         </tbody>
       </table>
     </div>
-  )
+  );
 }

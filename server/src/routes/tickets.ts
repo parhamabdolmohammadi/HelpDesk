@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import type { Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
 import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecret.ts'
@@ -9,13 +10,20 @@ export const ticketsRouter = Router()
 const listTicketsQuerySchema = z.object({
   sortBy: z.enum(['subject', 'requesterEmail', 'status', 'category', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  status: z.enum(['OPEN', 'RESOLVED', 'CLOSED']).optional(),
+  // 'UNCLASSIFIED' is a UI-facing stand-in for category: null (there's no
+  // such enum value in the schema), since a ticket created from an inbound
+  // email is left uncategorized until a human or future AI step sets one.
+  category: z.enum(['GENERAL_QUESTION', 'TECHNICAL_QUESTION', 'REFUND_REQUEST', 'UNCLASSIFIED']).optional(),
+  search: z.string().trim().min(1).optional(),
 })
 
 // requireAuth only, no requireRole — any logged-in user (AGENT or ADMIN)
 // can view the ticket list, unlike usersRouter which is admin-only.
-// Sorting happens here, in the Prisma query, not client-side — sortBy is
-// checked against the enum above (not raw user input) before it ever
-// reaches `orderBy`, so it can't be used to inject an arbitrary column.
+// Sorting and filtering both happen here, in the Prisma query, not
+// client-side — sortBy/status/category are checked against enums above
+// (not raw user input) before they ever reach `where`/`orderBy`, so they
+// can't be used to inject an arbitrary column or condition.
 ticketsRouter.get('/', requireAuth, async (req, res) => {
   const parsed = listTicketsQuerySchema.safeParse(req.query)
 
@@ -24,9 +32,21 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
     return
   }
 
-  const { sortBy, sortOrder } = parsed.data
+  const { sortBy, sortOrder, status, category, search } = parsed.data
+
+  const where: Prisma.TicketWhereInput = {
+    ...(status && { status }),
+    ...(category && { category: category === 'UNCLASSIFIED' ? null : category }),
+    ...(search && {
+      OR: [
+        { subject: { contains: search, mode: 'insensitive' } },
+        { requesterEmail: { contains: search, mode: 'insensitive' } },
+      ],
+    }),
+  }
 
   const tickets = await prisma.ticket.findMany({
+    where,
     orderBy: { [sortBy]: sortOrder },
     select: {
       id: true,
