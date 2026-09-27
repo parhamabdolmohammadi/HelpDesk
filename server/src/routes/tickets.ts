@@ -1,9 +1,28 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db.ts'
+import { requireAuth } from '../middleware/requireAuth.ts'
 import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecret.ts'
 
 export const ticketsRouter = Router()
+
+// requireAuth only, no requireRole — any logged-in user (AGENT or ADMIN)
+// can view the ticket list, unlike usersRouter which is admin-only.
+ticketsRouter.get('/', requireAuth, async (_req, res) => {
+  const tickets = await prisma.ticket.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      subject: true,
+      requesterEmail: true,
+      status: true,
+      category: true,
+      createdAt: true,
+    },
+  })
+
+  res.json({ tickets })
+})
 
 const inboundEmailSchema = z.object({
   from: z.string().trim().min(1, 'From is required').email('From must be a valid email'),

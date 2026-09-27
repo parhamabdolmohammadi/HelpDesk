@@ -19,6 +19,9 @@ export function NavBar() {
         Help Desk
       </Link>
       <div className="flex items-center gap-4">
+        <Link to="/tickets" className="text-sm text-muted-foreground hover:text-foreground">
+          Tickets
+        </Link>
         {session?.user.role === 'ADMIN' && (
           <Link to="/users" className="text-sm text-muted-foreground hover:text-foreground">
             Users
