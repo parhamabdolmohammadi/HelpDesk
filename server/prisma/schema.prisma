@@ -28,11 +28,12 @@ enum TicketCategory {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   name      String?
-  role      UserRole @default(AGENT)
-  createdAt DateTime @default(now())
+  role      UserRole  @default(AGENT)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
   assignedTickets Ticket[]
   emailVerified   Boolean   @default(false)

@@ -1,3 +1,4 @@
+import { DeleteUserModal } from '@/components/DeleteUserModal'
 import { EditUserModal } from '@/components/EditUserModal'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -96,7 +97,10 @@ export function UsersTable({ users, isPending }: UsersTableProps) {
                 {new Date(user.createdAt).toLocaleDateString()}
               </td>
               <td className="px-4 py-2">
-                <EditUserModal user={user} />
+                <div className="flex items-center gap-1">
+                  <EditUserModal user={user} />
+                  <DeleteUserModal user={user} />
+                </div>
               </td>
             </tr>
           ))}

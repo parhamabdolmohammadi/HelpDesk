@@ -235,3 +235,7 @@ is shown. and that it gets hidden when we click outside or press esc.
 - add the ability to edit users.
 
 in the users table, add a edit button  with an icon to each row. when clicked, show the user form in a dialog box populated with users data. if the password is provided use it to change user's password. otherwise dont change the password.
+
+13- deleting users
+
+- Add the ability to delete users. show a modal for confirmation. admin cannot be deleted. implement soft deletion. if a user is soft deleted their session is invalidated so theypre logged out right away
