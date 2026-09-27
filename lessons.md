@@ -260,3 +260,9 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 5 - Listing Tickets
 
 - build the ticket list feature sort tickets by newest first.
+
+6 - sorting tables
+
+- add sorting to tickets table using tanstack table. sorting should happen on the server SOTING SHOULD HAPPEN ON THE SERVER.   YOUR BIGGEST iSSUE
+
+- create 100 tickets using real - life example so we can see sorting and filtering

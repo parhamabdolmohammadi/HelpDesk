@@ -6,11 +6,28 @@ import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecr
 
 export const ticketsRouter = Router()
 
+const listTicketsQuerySchema = z.object({
+  sortBy: z.enum(['subject', 'requesterEmail', 'status', 'category', 'createdAt']).optional().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+})
+
 // requireAuth only, no requireRole — any logged-in user (AGENT or ADMIN)
 // can view the ticket list, unlike usersRouter which is admin-only.
-ticketsRouter.get('/', requireAuth, async (_req, res) => {
+// Sorting happens here, in the Prisma query, not client-side — sortBy is
+// checked against the enum above (not raw user input) before it ever
+// reaches `orderBy`, so it can't be used to inject an arbitrary column.
+ticketsRouter.get('/', requireAuth, async (req, res) => {
+  const parsed = listTicketsQuerySchema.safeParse(req.query)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  const { sortBy, sortOrder } = parsed.data
+
   const tickets = await prisma.ticket.findMany({
-    orderBy: { createdAt: 'desc' },
+    orderBy: { [sortBy]: sortOrder },
     select: {
       id: true,
       subject: true,
