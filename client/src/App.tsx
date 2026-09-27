@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
+import { TicketDetail } from './pages/TicketDetail'
 import { Tickets } from './pages/Tickets'
 import { Users } from './pages/Users'
 
@@ -28,6 +29,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Tickets />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets/:id"
+            element={
+              <ProtectedRoute>
+                <TicketDetail />
               </ProtectedRoute>
             }
           />

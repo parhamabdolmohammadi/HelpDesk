@@ -8,6 +8,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { TextLink } from "./TextLink";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -37,13 +38,13 @@ type TicketsTableProps = {
   rowCount: number;
 };
 
-const statusStyles: Record<TicketStatus, string> = {
+export const statusStyles: Record<TicketStatus, string> = {
   OPEN: "bg-primary text-primary-foreground",
   RESOLVED: "bg-muted text-muted-foreground",
   CLOSED: "bg-muted text-muted-foreground",
 };
 
-function formatCategory(category: TicketCategory): string {
+export function formatCategory(category: TicketCategory): string {
   if (!category) {
     return "—";
   }
@@ -68,7 +69,12 @@ const features = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 const columnHelper = createColumnHelper<typeof features, TicketListItem>();
 
 const columns = columnHelper.columns([
-  columnHelper.accessor("subject", { header: "Subject" }),
+  columnHelper.accessor("subject", {
+    header: "Subject",
+    cell: (info) => (
+      <TextLink to={`/tickets/${info.row.original.id}`}>{info.getValue()}</TextLink>
+    ),
+  }),
   columnHelper.accessor("requesterEmail", { header: "Requester" }),
   columnHelper.accessor("status", {
     header: "Status",

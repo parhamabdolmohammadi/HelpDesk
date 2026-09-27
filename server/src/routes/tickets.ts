@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
 import type { Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
@@ -67,6 +67,22 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
   ])
 
   res.json({ tickets, totalCount })
+})
+
+// requireAuth only, matching GET / above — any logged-in user can view a
+// ticket's details, not just admins.
+ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: { messages: { orderBy: { createdAt: 'asc' } } },
+  })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  res.json({ ticket })
 })
 
 const inboundEmailSchema = z.object({
