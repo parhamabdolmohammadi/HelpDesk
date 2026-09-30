@@ -289,3 +289,9 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 - add the ability to update ticket status and category
 
 - split the ticket detail page into 2 columns put all drop down lists in the right column
+
+13 - Add the ability to reply to tickets
+
+- add the ability to reply to tickets on the ticket detail page show the reply thread below the message and add a form to submit new replies
+
+-add a sender type to distinguish from sender and admin type

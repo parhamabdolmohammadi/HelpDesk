@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
+import { createTicketReplySchema } from 'core'
 import { UserRole, type Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
@@ -90,6 +91,10 @@ ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res:
     where: { id: req.params.id },
     include: {
       messages: { orderBy: { createdAt: 'asc' } },
+      replies: {
+        orderBy: { createdAt: 'asc' },
+        include: { author: { select: { id: true, name: true, email: true } } },
+      },
       assignee: { select: { id: true, name: true, email: true } },
     },
   })
@@ -190,6 +195,40 @@ ticketsRouter.patch('/:id/assignee', requireAuth, async (req: Request<{ id: stri
   })
 
   res.json({ ticket: updated })
+})
+
+// requireAuth only, matching the other ticket routes — any logged-in user
+// (AGENT or ADMIN) can reply to a ticket. The reply's author is always the
+// logged-in user, never taken from the request body.
+ticketsRouter.post('/:id/replies', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const parsed = createTicketReplySchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  const reply = await prisma.ticketReply.create({
+    data: {
+      ticketId: ticket.id,
+      authorId: req.user!.id,
+      // Better Auth types this additional field as optional (its own schema
+      // marks it `required: false`), even though the DB column always has a
+      // value — fall back to the same AGENT default it configures.
+      senderType: req.user!.role ?? UserRole.AGENT,
+      body: parsed.data.body,
+    },
+    include: { author: { select: { id: true, name: true, email: true } } },
+  })
+
+  res.status(201).json({ reply })
 })
 
 const inboundEmailSchema = z.object({

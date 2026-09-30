@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 import { NavBar } from '../components/NavBar'
 import { TicketAssigneeSelect } from '../components/TicketAssigneeSelect'
 import { TicketCategorySelect } from '../components/TicketCategorySelect'
+import { TicketReplyForm } from '../components/TicketReplyForm'
 import { TicketStatusSelect } from '../components/TicketStatusSelect'
 import type { TicketCategory, TicketStatus } from '../components/TicketsTable'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -18,6 +19,14 @@ type TicketMessage = {
   createdAt: string
 }
 
+type TicketReply = {
+  id: string
+  body: string
+  createdAt: string
+  senderType: 'ADMIN' | 'AGENT'
+  author: { id: string; name: string | null; email: string }
+}
+
 type TicketDetail = {
   id: string
   subject: string
@@ -28,6 +37,7 @@ type TicketDetail = {
   createdAt: string
   updatedAt: string
   messages: TicketMessage[]
+  replies: TicketReply[]
 }
 
 export function TicketDetail() {
@@ -125,6 +135,43 @@ export function TicketDetail() {
                     {data.messages.length === 0 && (
                       <p className="text-sm text-muted-foreground">No messages on this ticket.</p>
                     )}
+                  </div>
+
+                  <div className="mt-8">
+                    <h2 className="font-bold text-foreground">Replies</h2>
+
+                    <div className="mt-4 space-y-4">
+                      {data.replies.map((reply) => (
+                        <div key={reply.id} className="rounded-xl border border-border bg-muted/30 p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">
+                                From {reply.author.name ?? reply.author.email}
+                              </p>
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  reply.senderType === 'ADMIN'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {reply.senderType}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(reply.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{reply.body}</p>
+                        </div>
+                      ))}
+
+                      {data.replies.length === 0 && (
+                        <p className="text-sm text-muted-foreground">No replies yet.</p>
+                      )}
+                    </div>
+
+                    <TicketReplyForm ticketId={data.id} />
                   </div>
                 </div>
 

@@ -36,9 +36,10 @@ model User {
   deletedAt DateTime?
 
   assignedTickets Ticket[]
-  emailVerified   Boolean   @default(false)
+  ticketReplies   TicketReply[]
+  emailVerified   Boolean       @default(false)
   image           String?
-  updatedAt       DateTime  @updatedAt
+  updatedAt       DateTime      @updatedAt
   sessions        Session[]
   accounts        Account[]
 
@@ -57,6 +58,7 @@ model Ticket {
   updatedAt      DateTime        @updatedAt
 
   messages       TicketMessage[]
+  replies        TicketReply[]
 }
 
 model TicketMessage {
@@ -65,6 +67,24 @@ model TicketMessage {
   ticket     Ticket   @relation(fields: [ticketId], references: [id])
   fromEmail  String
   senderName String
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+// An agent/admin's reply on a ticket, distinct from TicketMessage (which is
+// only inbound requester emails) — a reply has an authenticated author
+// instead of a from-address, and, once outbound email sending exists, is
+// the model that would actually get emailed back to the requester.
+model TicketReply {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  // Snapshot of the author's role at the time they replied (not a live
+  // join against User.role), so a reply's badge in the UI stays accurate
+  // even if that user's role changes later.
+  senderType UserRole
   body       String
   createdAt  DateTime @default(now())
 }
