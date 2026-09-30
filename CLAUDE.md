@@ -56,9 +56,24 @@ Requests to `/api/*` are proxied to the server on port 4000.
 
 ## Database
 
-Local PostgreSQL 17 (Windows service `postgresql-x64-17`), database `helpdesk`,
-accessed via a dedicated `helpdesk_app` role (not the `postgres` superuser) with
-`CREATEDB` granted so Prisma Migrate can manage its shadow database.
+The dev database is **Neon-hosted Postgres** (serverless/cloud) — `DATABASE_URL`
+in `server/.env` is a `...neon.tech/...?sslmode=require...` connection string,
+not a local Postgres instance. This project originally ran on local Postgres
+17, and that setup still exists on this machine (a `helpdesk` database via a
+dedicated `helpdesk_app` role), but Neon is now the database the app actually
+talks to — don't assume `DATABASE_URL` points at localhost.
+
+If `DATABASE_URL` ever gets replaced with a different connection string
+(pointing at an empty or different database), sign-in fails with a plain
+"Invalid email or password" rather than a connection error, because Better
+Auth is just querying a database that has no matching user row — check
+`DATABASE_URL` first before debugging auth code if login suddenly stops
+working for a previously-working account.
+
+The E2E test database (`helpdesk_test`, see `server/.env.test` and Testing
+below) is unaffected by this and is still local Postgres — it's a separate
+database from dev/prod and always has been, so switching the dev database
+doesn't change how E2E tests are configured.
 
 Prisma is pinned to `^7.10.0` in `server/package.json` — **do not install
 `prisma@latest`**, since at the time this was set up the `latest` npm dist-tag

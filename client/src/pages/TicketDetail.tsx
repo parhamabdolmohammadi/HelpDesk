@@ -4,12 +4,9 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { NavBar } from '../components/NavBar'
 import { TicketAssigneeSelect } from '../components/TicketAssigneeSelect'
-import {
-  formatCategory,
-  statusStyles,
-  type TicketCategory,
-  type TicketStatus,
-} from '../components/TicketsTable'
+import { TicketCategorySelect } from '../components/TicketCategorySelect'
+import { TicketStatusSelect } from '../components/TicketStatusSelect'
+import type { TicketCategory, TicketStatus } from '../components/TicketsTable'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -54,7 +51,7 @@ export function TicketDetail() {
   return (
     <div>
       <NavBar />
-      <main className="mx-auto max-w-3xl p-6">
+      <main className="mx-auto max-w-4xl p-6">
         <Link
           to="/tickets"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -81,68 +78,82 @@ export function TicketDetail() {
             <>
               <h1 className="text-2xl font-bold text-gray-900">{data.subject}</h1>
 
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[data.status]}`}
-                >
-                  {data.status}
-                </span>
-                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  {formatCategory(data.category)}
-                </span>
-              </div>
-
-              <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+              <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[5fr_1fr]">
                 <div>
-                  <dt className="text-muted-foreground">From</dt>
-                  <dd className="mt-0.5 text-foreground">
-                    {requesterName ? `${requesterName} (${data.requesterEmail})` : data.requesterEmail}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Assigned to</dt>
-                  <dd className="mt-1">
-                    <TicketAssigneeSelect ticketId={data.id} assigneeId={data.assignee?.id ?? null} />
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Created</dt>
-                  <dd className="mt-0.5 text-foreground">
-                    {new Date(data.createdAt).toLocaleString()}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Updated</dt>
-                  <dd className="mt-0.5 text-foreground">
-                    {new Date(data.updatedAt).toLocaleString()}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-8 space-y-4">
-                {data.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className="rounded-xl border border-border p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h2 className="font-bold text-foreground">Message</h2>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(message.createdAt).toLocaleString()}
-                      </span>
+                  <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground">From</dt>
+                      <dd className="mt-0.5 text-foreground">
+                        {requesterName ? `${requesterName} (${data.requesterEmail})` : data.requesterEmail}
+                      </dd>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      From {message.senderName}
-                    </p>
-                    <p className="mt-4 whitespace-pre-wrap text-sm text-foreground">
-                      {message.body}
-                    </p>
-                  </div>
-                ))}
+                    <div>
+                      <dt className="text-muted-foreground">Created</dt>
+                      <dd className="mt-0.5 text-foreground">
+                        {new Date(data.createdAt).toLocaleString()}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Updated</dt>
+                      <dd className="mt-0.5 text-foreground">
+                        {new Date(data.updatedAt).toLocaleString()}
+                      </dd>
+                    </div>
+                  </dl>
 
-                {data.messages.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No messages on this ticket.</p>
-                )}
+                  <div className="mt-8 space-y-4">
+                    {data.messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className="rounded-xl border border-border p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h2 className="font-bold text-foreground">Message</h2>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(message.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          From {message.senderName}
+                        </p>
+                        <p className="mt-4 whitespace-pre-wrap text-sm text-foreground">
+                          {message.body}
+                        </p>
+                      </div>
+                    ))}
+
+                    {data.messages.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No messages on this ticket.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground">Status</label>
+                    <TicketStatusSelect
+                      className="mt-1 w-full"
+                      ticketId={data.id}
+                      status={data.status}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Category</label>
+                    <TicketCategorySelect
+                      className="mt-1 w-full"
+                      ticketId={data.id}
+                      category={data.category}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">Assigned to</label>
+                    <TicketAssigneeSelect
+                      className="mt-1 w-full"
+                      ticketId={data.id}
+                      assigneeId={data.assignee?.id ?? null}
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}

@@ -282,3 +282,10 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 11 - Assigning Tickets
 
 - add the ability to assign tickets to an agent
+  
+
+12 - Updating Tickets
+
+- add the ability to update ticket status and category
+
+- split the ticket detail page into 2 columns put all drop down lists in the right column

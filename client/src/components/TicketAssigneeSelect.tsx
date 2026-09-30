@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useState } from 'react'
+import { cn } from 'cn'
 import { selectClassName } from './TicketsFilters'
 
 type Agent = {
@@ -12,9 +13,10 @@ type Agent = {
 type TicketAssigneeSelectProps = {
   ticketId: string
   assigneeId: string | null
+  className?: string
 }
 
-export function TicketAssigneeSelect({ ticketId, assigneeId }: TicketAssigneeSelectProps) {
+export function TicketAssigneeSelect({ ticketId, assigneeId, className }: TicketAssigneeSelectProps) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +50,7 @@ export function TicketAssigneeSelect({ ticketId, assigneeId }: TicketAssigneeSel
   return (
     <div>
       <select
-        className={selectClassName}
+        className={cn(selectClassName, className)}
         value={assigneeId ?? ''}
         disabled={isPending}
         onChange={(e) => mutate(e.target.value || null)}

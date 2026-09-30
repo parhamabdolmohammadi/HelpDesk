@@ -102,6 +102,50 @@ ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res:
   res.json({ ticket })
 })
 
+const updateTicketSchema = z
+  .object({
+    status: z.enum(['OPEN', 'RESOLVED', 'CLOSED']).optional(),
+    // null clears the category (the "Unclassified" state); omitting the
+    // field entirely leaves the current category untouched.
+    category: z.enum(['GENERAL_QUESTION', 'TECHNICAL_QUESTION', 'REFUND_REQUEST']).nullable().optional(),
+  })
+  .refine((data) => data.status !== undefined || data.category !== undefined, {
+    message: 'At least one of status or category must be provided',
+  })
+
+// requireAuth only, matching the other ticket routes — any logged-in user
+// can update a ticket's status/category, not just admins. Only the fields
+// present in the request body are changed, so a client that only wants to
+// change status doesn't need to resend category (and vice versa).
+ticketsRouter.patch('/:id', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const parsed = updateTicketSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  const { status, category } = parsed.data
+
+  const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  const updated = await prisma.ticket.update({
+    where: { id: req.params.id },
+    data: {
+      ...(status !== undefined && { status }),
+      ...(category !== undefined && { category }),
+    },
+    include: { assignee: { select: { id: true, name: true, email: true } } },
+  })
+
+  res.json({ ticket: updated })
+})
+
 const assignTicketSchema = z.object({
   // null unassigns the ticket; omitting the field entirely is not allowed,
   // to keep the intent of the request explicit.
