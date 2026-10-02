@@ -1,0 +1,19 @@
+# Keep this in sync with .gitignore's intent — critically, every .env*
+# file (secrets) must never end up in the build context or an image layer.
+node_modules
+**/node_modules
+dist
+**/dist
+.env*
+!.env.example
+!.env.test.example
+*.log
+
+.git
+.claude
+.agents
+e2e
+test-results
+playwright-report
+blob-report
+playwright/.cache

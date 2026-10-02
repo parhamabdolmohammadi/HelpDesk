@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
@@ -50,6 +52,31 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.use('/api/users', usersRouter)
 app.use('/api/tickets', ticketsRouter)
+
+// In production this server also serves the built client (see the root
+// Dockerfile, which runs `bun run build` in client/ before starting this
+// process) — same-origin, so there's no cross-origin cookie/CORS concern
+// for the session cookie in production. In development the two run as
+// separate processes instead (Vite's dev server on 5173, proxying /api to
+// this server on 4000 — see client/vite.config.ts), so this block is
+// skipped entirely.
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = fileURLToPath(new URL('../../client/dist', import.meta.url))
+
+  app.use(express.static(clientDist))
+
+  // SPA fallback for client-side routing (e.g. a hard refresh on
+  // /tickets/:id) — but only for non-API paths, so a typo'd or removed API
+  // route still 404s as JSON instead of silently serving the SPA shell.
+  app.get('*splat', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      res.status(404).json({ status: 'error', message: 'Not found' })
+      return
+    }
+
+    res.sendFile(join(clientDist, 'index.html'))
+  })
+}
 
 // Express 5 forwards a rejected promise from any route/middleware above to
 // this error handler automatically, so routes don't need their own

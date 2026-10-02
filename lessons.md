@@ -383,3 +383,8 @@ also below the card show all the tickets that a current user has submitted and a
 3 - polishing Ui
 
 - improve the look and feel of this app make it modern and professional give me a few design ideas to choose from
+
+
+4 - Preparing for production
+
+ - Prepare this app for deployment to railway
