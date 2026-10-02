@@ -1,7 +1,7 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { createTicketReplySchema, type CreateTicketReplyInput } from 'core'
+import type { CreateTicketReplyInput } from 'core'
+import { Sparkles } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -18,8 +18,12 @@ export function TicketReplyForm({ ticketId }: TicketReplyFormProps) {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateTicketReplyInput>({ resolver: zodResolver(createTicketReplySchema) })
+    watch,
+    setValue,
+    formState: { isSubmitting },
+  } = useForm<CreateTicketReplyInput>()
+
+  const body = watch('body')
 
   const { mutateAsync, isError } = useMutation({
     mutationFn: async (data: CreateTicketReplyInput) => {
@@ -27,6 +31,24 @@ export function TicketReplyForm({ ticketId }: TicketReplyFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets', ticketId] })
+    },
+  })
+
+  const {
+    mutate: polish,
+    isPending: isPolishing,
+    isError: isPolishError,
+  } = useMutation({
+    mutationFn: async (draft: string) => {
+      const response = await axios.post<{ polished: string }>(
+        `/api/tickets/${ticketId}/replies/polish`,
+        { body: draft },
+        { withCredentials: true },
+      )
+      return response.data.polished
+    },
+    onSuccess: (polished) => {
+      setValue('body', polished)
     },
   })
 
@@ -42,17 +64,30 @@ export function TicketReplyForm({ ticketId }: TicketReplyFormProps) {
           <AlertDescription>Failed to send reply</AlertDescription>
         </Alert>
       )}
+      {isPolishError && (
+        <Alert variant="destructive">
+          <AlertDescription>Failed to polish reply</AlertDescription>
+        </Alert>
+      )}
 
       <Textarea
         placeholder="Write a reply…"
         rows={4}
-        aria-invalid={!!errors.body}
+        disabled={isPolishing}
         {...register('body')}
       />
-      {errors.body && <p className="text-sm text-destructive">{errors.body.message}</p>}
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSubmitting}>
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!body?.trim() || isPolishing || isSubmitting}
+          onClick={() => polish(body)}
+        >
+          <Sparkles />
+          {isPolishing ? 'Polishing…' : 'Polish'}
+        </Button>
+        <Button type="submit" disabled={!body?.trim() || isSubmitting || isPolishing}>
           {isSubmitting ? 'Sending…' : 'Send reply'}
         </Button>
       </div>

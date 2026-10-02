@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { createTicketReplySchema } from 'core'
 import { UserRole, type Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
@@ -229,6 +231,61 @@ ticketsRouter.post('/:id/replies', requireAuth, async (req: Request<{ id: string
   })
 
   res.status(201).json({ reply })
+})
+
+// requireAuth only, matching POST /:id/replies — any logged-in user drafting
+// a reply can polish it before sending. Reuses createTicketReplySchema since
+// the request shape (a single non-empty `body` string) is identical to
+// creating a reply; this endpoint never persists anything itself.
+ticketsRouter.post('/:id/replies/polish', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const parsed = createTicketReplySchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  // The first message is the original inbound email, so its senderName is
+  // the requester's display name — same lookup the client does to show
+  // "From" on the ticket detail page.
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: { messages: { orderBy: { createdAt: 'asc' }, take: 1 } },
+  })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not configured')
+    res.status(500).json({ status: 'error', message: 'AI polishing is not configured' })
+    return
+  }
+
+  const customerFirstName = ticket.messages[0]?.senderName.split(' ')[0]
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system:
+      'You polish draft replies written by customer support agents. Improve ' +
+      "grammar, clarity, and tone while preserving the reply's meaning and " +
+      "facts exactly — don't add new claims, promises, or information. " +
+      (customerFirstName
+        ? `Open with a brief greeting addressing the customer by their first name, ${customerFirstName}. `
+        : '') +
+      "Don't add a sign-off naming the agent — one is appended separately. " +
+      'Respond with only the improved reply text, no preamble or commentary.',
+    prompt: parsed.data.body,
+  })
+
+  // The signature always comes from the authenticated agent's own session,
+  // never from the model output, so a reply can't be signed with a name/email
+  // the model made up or that another user supplied.
+  const signature = `Best regards,\n${req.user!.name ?? req.user!.email}\n${req.user!.email}`
+
+  res.json({ polished: `${text}\n\n${signature}` })
 })
 
 const inboundEmailSchema = z.object({

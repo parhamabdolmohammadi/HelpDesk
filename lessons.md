@@ -295,3 +295,20 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 - add the ability to reply to tickets on the ticket detail page show the reply thread below the message and add a form to submit new replies
 
 -add a sender type to distinguish from sender and admin type
+
+
+## Authentication
+
+### AI Powered  Features
+
+
+2 - Polishing Replies
+
+- on ticket details page, add a polish button before send reply when clicked, improve the agent's reply using gpt-5-nano. use ai sdk by vercel
+
+- Sign the polished reply with agent's name and email
+
+- also address the customer by their name
+
+- Instead of validation error disable the send reply button if the there is no message
+
