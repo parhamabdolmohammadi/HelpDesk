@@ -9,9 +9,10 @@ type TicketCategorySelectProps = {
   ticketId: string
   category: TicketCategory
   className?: string
+  disabled?: boolean
 }
 
-export function TicketCategorySelect({ ticketId, category, className }: TicketCategorySelectProps) {
+export function TicketCategorySelect({ ticketId, category, className, disabled }: TicketCategorySelectProps) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -35,7 +36,7 @@ export function TicketCategorySelect({ ticketId, category, className }: TicketCa
       <select
         className={cn(selectClassName, className)}
         value={category ?? ''}
-        disabled={isPending}
+        disabled={isPending || disabled}
         onChange={(e) => mutate(e.target.value === '' ? null : (e.target.value as NonNullable<TicketCategory>))}
       >
         <option value="">Unclassified</option>

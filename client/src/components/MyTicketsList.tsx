@@ -66,7 +66,9 @@ export function MyTicketsList() {
                 {data.map((ticket) => (
                   <tr key={ticket.id} className="border-t border-border">
                     <td className="px-4 py-2">
-                      <TextLink to={`/tickets/${ticket.id}`}>{ticket.subject}</TextLink>
+                      <TextLink to={`/tickets/${ticket.id}`} className="font-heading">
+                        {ticket.subject}
+                      </TextLink>
                     </td>
                     <td className="px-4 py-2">
                       <span

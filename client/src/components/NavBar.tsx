@@ -14,8 +14,8 @@ export function NavBar() {
   const displayName = session?.user.name || session?.user.email
 
   return (
-    <nav className="flex items-center justify-between border-b border-border bg-white px-6 py-3">
-      <Link to="/" className="text-lg font-semibold text-foreground">
+    <nav className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
+      <Link to="/" className="font-heading text-lg font-semibold text-foreground">
         Help Desk
       </Link>
       <div className="flex items-center gap-4">

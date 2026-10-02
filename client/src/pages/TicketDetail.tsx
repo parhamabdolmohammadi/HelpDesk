@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { NavBar } from "../components/NavBar";
+import { useSession } from "../lib/auth-client";
 import { TicketAssigneeSelect } from "../components/TicketAssigneeSelect";
 import { TicketCategorySelect } from "../components/TicketCategorySelect";
 import { TicketReplyForm } from "../components/TicketReplyForm";
@@ -44,6 +45,7 @@ type TicketDetail = {
 
 export function TicketDetail() {
   const { id } = useParams<{ id: string }>();
+  const { data: session } = useSession();
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["tickets", id],
@@ -62,6 +64,15 @@ export function TicketDetail() {
   // message is the original inbound email, so its senderName is the
   // requester's display name.
   const requesterName = data?.messages[0]?.senderName;
+
+  // Mirrors the server's canManageTicket (routes/tickets.ts): an admin can
+  // manage any ticket, a regular agent only their own. This only controls
+  // whether the selects are enabled in the UI — the server enforces the
+  // same rule independently, so this is a convenience, not the actual
+  // security boundary.
+  const canManage =
+    session?.user.role === "ADMIN" ||
+    session?.user.email.toLowerCase() === data?.requesterEmail.toLowerCase();
 
   return (
     <div>
@@ -91,7 +102,7 @@ export function TicketDetail() {
 
           {!isPending && !isError && data && (
             <>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="font-heading text-2xl text-foreground">
                 {data.subject}
               </h1>
 
@@ -168,9 +179,9 @@ export function TicketDetail() {
                                   : (reply.author?.name ?? reply.author?.email)}
                               </p>
                               {reply.isAiGenerated ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-ai-accent/10 px-2 py-0.5 text-xs font-medium text-ai-accent">
                                   <Sparkles className="h-3 w-3" />
-                                  AI SUPPORT TEAM
+                                  AI Support Team
                                 </span>
                               ) : (
                                 <span
@@ -214,6 +225,7 @@ export function TicketDetail() {
                       className="mt-1 w-full"
                       ticketId={data.id}
                       status={data.status}
+                      disabled={!canManage}
                     />
                   </div>
                   <div>
@@ -224,6 +236,7 @@ export function TicketDetail() {
                       className="mt-1 w-full"
                       ticketId={data.id}
                       category={data.category}
+                      disabled={!canManage}
                     />
                   </div>
                   <div>
@@ -234,6 +247,7 @@ export function TicketDetail() {
                       className="mt-1 w-full"
                       ticketId={data.id}
                       assigneeId={data.assignee?.id ?? null}
+                      disabled={!canManage}
                     />
                   </div>
                 </div>

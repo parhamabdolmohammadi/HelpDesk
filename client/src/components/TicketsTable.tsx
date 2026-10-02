@@ -72,7 +72,9 @@ const columns = columnHelper.columns([
   columnHelper.accessor("subject", {
     header: "Subject",
     cell: (info) => (
-      <TextLink to={`/tickets/${info.row.original.id}`}>{info.getValue()}</TextLink>
+      <TextLink to={`/tickets/${info.row.original.id}`} className="font-heading">
+        {info.getValue()}
+      </TextLink>
     ),
   }),
   columnHelper.accessor("requesterEmail", { header: "Requester" }),

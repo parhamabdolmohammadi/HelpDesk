@@ -369,4 +369,17 @@ also below the card show all the tickets that a current user has submitted and a
 
 
 
+
   - Now In the homepage I want to allow users to submit tickets use a beautiful card with placeholder for all info required
+
+
+
+
+
+## Production
+
+### Sessions
+
+3 - polishing Ui
+
+- improve the look and feel of this app make it modern and professional give me a few design ideas to choose from

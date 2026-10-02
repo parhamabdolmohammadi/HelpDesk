@@ -60,7 +60,7 @@ export function Tickets() {
     <div>
       <NavBar />
       <main className="p-6">
-        <h1 className="text-xl font-semibold text-gray-900">Tickets</h1>
+        <h1 className="font-heading text-2xl text-foreground">Tickets</h1>
 
         <div className="mt-4">
           <TicketsFilters

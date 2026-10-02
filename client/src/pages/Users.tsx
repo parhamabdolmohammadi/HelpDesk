@@ -25,7 +25,7 @@ export function Users() {
       <NavBar />
       <main className="p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">Users</h1>
+          <h1 className="font-heading text-2xl text-foreground">Users</h1>
           <CreateUserModal />
         </div>
 

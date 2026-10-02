@@ -309,6 +309,23 @@ ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res:
   res.json({ ticket })
 })
 
+// An admin can manage any ticket. A regular agent can only manage a ticket
+// they submitted themselves (see POST / — the requester is always the
+// authenticated submitter) — not another agent's ticket, and not an
+// inbound-email ticket from an external customer, which never matches any
+// logged-in user's own email.
+//
+// Better Auth types role as optional/nullable even though the DB column
+// always has a value (same gap worked around elsewhere in this file, e.g.
+// the reply senderType fallback) — default to AGENT, the least-privileged
+// role, rather than assuming ADMIN.
+function canManageTicket(
+  user: { role?: UserRole | null; email: string },
+  ticket: { requesterEmail: string },
+): boolean {
+  return (user.role ?? UserRole.AGENT) === UserRole.ADMIN || ticket.requesterEmail.toLowerCase() === user.email.toLowerCase()
+}
+
 const updateTicketSchema = z
   .object({
     status: z.enum(['OPEN', 'RESOLVED', 'CLOSED']).optional(),
@@ -320,10 +337,11 @@ const updateTicketSchema = z
     message: 'At least one of status or category must be provided',
   })
 
-// requireAuth only, matching the other ticket routes — any logged-in user
-// can update a ticket's status/category, not just admins. Only the fields
-// present in the request body are changed, so a client that only wants to
-// change status doesn't need to resend category (and vice versa).
+// requireAuth only — role is checked per-ticket below via canManageTicket,
+// not with requireRole, since an agent is allowed to update their own
+// ticket but not another user's. Only the fields present in the request
+// body are changed, so a client that only wants to change status doesn't
+// need to resend category (and vice versa).
 ticketsRouter.patch('/:id', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
   const parsed = updateTicketSchema.safeParse(req.body)
 
@@ -338,6 +356,11 @@ ticketsRouter.patch('/:id', requireAuth, async (req: Request<{ id: string }>, re
 
   if (!ticket) {
     res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  if (!canManageTicket(req.user!, ticket)) {
+    res.status(403).json({ status: 'error', message: 'Only an admin can update another user\'s ticket' })
     return
   }
 
@@ -364,11 +387,10 @@ const assignTicketSchema = z.object({
   assigneeId: z.string().min(1).nullable(),
 })
 
-// requireAuth only, matching the other ticket routes — any logged-in user
-// can assign a ticket, not just admins. Only AGENT-role users can be
-// assignees (see GET /agents above), so this re-validates assigneeId
-// against the same role/deletedAt condition rather than trusting the id
-// the client sent.
+// requireAuth only — role is checked per-ticket below via canManageTicket,
+// same reasoning as PATCH /:id. Only AGENT-role users can be assignees
+// (see GET /agents above), so this re-validates assigneeId against the
+// same role/deletedAt condition rather than trusting the id the client sent.
 ticketsRouter.patch('/:id/assignee', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
   const parsed = assignTicketSchema.safeParse(req.body)
 
@@ -392,6 +414,11 @@ ticketsRouter.patch('/:id/assignee', requireAuth, async (req: Request<{ id: stri
 
   if (!ticket) {
     res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  if (!canManageTicket(req.user!, ticket)) {
+    res.status(403).json({ status: 'error', message: 'Only an admin can update another user\'s ticket' })
     return
   }
 

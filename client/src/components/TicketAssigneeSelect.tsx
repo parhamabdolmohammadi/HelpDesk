@@ -14,9 +14,10 @@ type TicketAssigneeSelectProps = {
   ticketId: string
   assigneeId: string | null
   className?: string
+  disabled?: boolean
 }
 
-export function TicketAssigneeSelect({ ticketId, assigneeId, className }: TicketAssigneeSelectProps) {
+export function TicketAssigneeSelect({ ticketId, assigneeId, className, disabled }: TicketAssigneeSelectProps) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -52,7 +53,7 @@ export function TicketAssigneeSelect({ ticketId, assigneeId, className }: Ticket
       <select
         className={cn(selectClassName, className)}
         value={assigneeId ?? ''}
-        disabled={isPending}
+        disabled={isPending || disabled}
         onChange={(e) => mutate(e.target.value || null)}
       >
         <option value="">Unassigned</option>

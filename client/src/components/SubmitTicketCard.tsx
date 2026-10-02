@@ -100,7 +100,7 @@ export function SubmitTicketCard() {
       </CardHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 pb-2">
           {isError && (
             <Alert variant="destructive">
               <AlertDescription>Failed to submit ticket</AlertDescription>

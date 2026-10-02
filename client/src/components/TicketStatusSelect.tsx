@@ -9,9 +9,10 @@ type TicketStatusSelectProps = {
   ticketId: string
   status: TicketStatus
   className?: string
+  disabled?: boolean
 }
 
-export function TicketStatusSelect({ ticketId, status, className }: TicketStatusSelectProps) {
+export function TicketStatusSelect({ ticketId, status, className, disabled }: TicketStatusSelectProps) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -35,7 +36,7 @@ export function TicketStatusSelect({ ticketId, status, className }: TicketStatus
       <select
         className={cn(selectClassName, className)}
         value={status}
-        disabled={isPending}
+        disabled={isPending || disabled}
         onChange={(e) => mutate(e.target.value as TicketStatus)}
       >
         <option value="OPEN">Open</option>
