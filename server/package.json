@@ -23,6 +23,7 @@
     "zod": "^4.6.5",
     "ai": "^7.0.127",
     "@ai-sdk/openai": "^4.0.83",
+    "pg-boss": "^12.35.1",
     "core": "workspace:*"
   },
   "devDependencies": {

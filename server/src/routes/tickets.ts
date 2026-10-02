@@ -1,12 +1,13 @@
 import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
-import { generateObject, generateText } from 'ai'
+import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { createTicketReplySchema } from 'core'
 import { UserRole, type Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
 import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecret.ts'
+import { enqueueClassifyTicket } from '../jobs/classifyTicket.ts'
 
 export const ticketsRouter = Router()
 
@@ -366,37 +367,6 @@ function normalizeSubject(subject: string): string {
   return normalized.toLowerCase()
 }
 
-// Fire-and-forget: called without being awaited by its caller, so a slow or
-// failing AI call never delays the inbound-email webhook's response. Catches
-// its own errors (rather than letting the caller's try/catch, if any, handle
-// them) since an unawaited rejection would otherwise be unhandled.
-async function classifyTicketCategory(ticketId: string, text: string): Promise<void> {
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('OPENAI_API_KEY is not configured — skipping ticket classification')
-    return
-  }
-
-  try {
-    const { object } = await generateObject({
-      model: openai('gpt-5-nano'),
-      schema: z.object({
-        category: z.enum(['GENERAL_QUESTION', 'TECHNICAL_QUESTION', 'REFUND_REQUEST']),
-      }),
-      system:
-        'You classify customer support tickets into exactly one category ' +
-        'based on the content of the initial message:\n' +
-        '- GENERAL_QUESTION: general questions about the product/service\n' +
-        '- TECHNICAL_QUESTION: technical issues, bugs, or how-to questions\n' +
-        '- REFUND_REQUEST: requests for a refund, cancellation, or billing dispute',
-      prompt: text,
-    })
-
-    await prisma.ticket.update({ where: { id: ticketId }, data: { category: object.category } })
-  } catch (err) {
-    console.error(`Failed to classify ticket ${ticketId}:`, err)
-  }
-}
-
 // Unlike usersRouter, this router has no whole-router requireAuth guard —
 // /inbound-email is called by an external system with no user session.
 // Future CRUD routes added here must apply requireAuth/requireRole
@@ -443,9 +413,10 @@ ticketsRouter.post('/inbound-email', requireInboundEmailSecret, async (req, res)
     },
   })
 
-  // Not awaited: classification runs in the background and updates
-  // ticket.category later, so the webhook caller isn't kept waiting on it.
-  void classifyTicketCategory(ticket.id, text)
+  // Enqueuing is just a fast insert — classification itself runs later in
+  // the pg-boss worker (see jobs/classifyTicket.ts), so the webhook caller
+  // isn't kept waiting on the AI call.
+  await enqueueClassifyTicket(ticket.id, text)
 
   res.status(201).json({ ticket: { id: ticket.id }, appendedToExistingTicket: false })
 })

@@ -320,7 +320,7 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 
 - add the ability to summarize a ticket add a summarize button with sparkles icon below the message and re-generate the summary each time
   
-6- Classifying tickets
+7- Classifying tickets
 
 - automatically classify tickets using gpt. do it in a non-blocking fashion
 
@@ -329,3 +329,10 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 - Create a Ticket asking how to get a refund for a course
 
 - create a new ticket how to change password
+
+9- background job processing
+
+- use pg-boss for classifying tickets
+
+- hit the webhook to create a new ticket asking a general question
+

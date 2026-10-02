@@ -10,6 +10,8 @@ import { requireAuth } from './middleware/requireAuth.ts'
 import { usersRouter } from './routes/users.ts'
 import { ticketsRouter } from './routes/tickets.ts'
 import { trustedOrigins } from './trustedOrigins.ts'
+import { boss } from './queue.ts'
+import { registerClassifyTicketWorker } from './jobs/classifyTicket.ts'
 
 const app = express()
 const port = process.env.PORT ?? 4000
@@ -67,6 +69,9 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   console.error(err)
   res.status(500).json({ status: 'error', message: 'Internal server error' })
 })
+
+await boss.start()
+await registerClassifyTicketWorker()
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`)
