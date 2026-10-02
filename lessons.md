@@ -312,3 +312,10 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 
 - Instead of validation error disable the send reply button if the there is no message
 
+4 - Testing AI Features
+
+- Write Unit test for this features
+
+5 - Summarizing Tickets
+
+- add the ability to summarize a ticket add a summarize button with sparkles icon below the message and re-generate the summary each time

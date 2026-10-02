@@ -288,6 +288,60 @@ ticketsRouter.post('/:id/replies/polish', requireAuth, async (req: Request<{ id:
   res.json({ polished: `${text}\n\n${signature}` })
 })
 
+// requireAuth only, matching the other ticket routes. Nothing is persisted —
+// the summary is regenerated from the current messages/replies on every
+// call, so re-clicking "Summarize" after new activity always reflects the
+// latest thread instead of serving a stale cached result.
+ticketsRouter.post('/:id/summarize', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: req.params.id },
+    include: {
+      messages: { orderBy: { createdAt: 'asc' } },
+      replies: {
+        orderBy: { createdAt: 'asc' },
+        include: { author: { select: { name: true, email: true } } },
+      },
+    },
+  })
+
+  if (!ticket) {
+    res.status(404).json({ status: 'error', message: 'Ticket not found' })
+    return
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not configured')
+    res.status(500).json({ status: 'error', message: 'AI summarization is not configured' })
+    return
+  }
+
+  const thread = [
+    ...ticket.messages.map((message) => ({ from: message.senderName, body: message.body, at: message.createdAt })),
+    ...ticket.replies.map((reply) => ({
+      from: reply.author.name ?? reply.author.email,
+      body: reply.body,
+      at: reply.createdAt,
+    })),
+  ]
+    .sort((a, b) => a.at.getTime() - b.at.getTime())
+    .map((entry) => `${entry.from}:\n${entry.body}`)
+    .join('\n\n---\n\n')
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system:
+      'You summarize customer support ticket threads for agents. Write a ' +
+      "concise summary (2-4 sentences) covering the customer's issue, any " +
+      "key details (e.g. order/account info), and the current status based " +
+      "on the latest message. Only use information present in the thread " +
+      "— don't invent details. Respond with only the summary text, no " +
+      'preamble or commentary.',
+    prompt: thread,
+  })
+
+  res.json({ summary: text })
+})
+
 const inboundEmailSchema = z.object({
   from: z.string().trim().min(1, 'From is required').email('From must be a valid email'),
   senderName: z.string().trim().min(1, 'Sender name is required'),

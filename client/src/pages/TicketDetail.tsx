@@ -7,6 +7,7 @@ import { TicketAssigneeSelect } from "../components/TicketAssigneeSelect";
 import { TicketCategorySelect } from "../components/TicketCategorySelect";
 import { TicketReplyForm } from "../components/TicketReplyForm";
 import { TicketStatusSelect } from "../components/TicketStatusSelect";
+import { TicketSummary } from "../components/TicketSummary";
 import type { TicketCategory, TicketStatus } from "../components/TicketsTable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -144,6 +145,8 @@ export function TicketDetail() {
                         No messages on this ticket.
                       </p>
                     )}
+
+                    <TicketSummary ticketId={data.id} />
                   </div>
 
                   <div className="mt-8">
