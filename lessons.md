@@ -359,3 +359,14 @@ don't show tickets being resolved by ai on the list
   - Average Resolution time
 
 -  below the metrics add a bar chart showing the total number of tickets over the past 30 days if we dont have any active ticket for last 10 days start the 30 days from the last generated ticket
+
+- Now I want the Subject and Description to be polishable by ai
+
+also below the card show all the tickets that a current user has submitted and all required info (not the response) and make it transferrrable to the ticketdetail page
+  
+
+## Email Integration
+
+
+
+  - Now In the homepage I want to allow users to submit tickets use a beautiful card with placeholder for all info required

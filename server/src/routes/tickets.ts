@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { z } from 'zod'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import { createTicketReplySchema } from 'core'
+import { createTicketReplySchema, createTicketSchema } from 'core'
 import { UserRole, type Prisma } from '../generated/prisma/client.ts'
 import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
@@ -72,6 +72,124 @@ ticketsRouter.get('/', requireAuth, async (req, res) => {
   ])
 
   res.json({ tickets, totalCount })
+})
+
+// requireAuth only, matching the other ticket routes — any logged-in user
+// can submit a ticket, not just admins. The requester is always the
+// authenticated user (req.user, never the request body) — same reasoning
+// as a reply's author always coming from the session. Goes through the
+// same classify/auto-resolve pipeline as an inbound email, since from the
+// ticket's perspective it's just another way a ticket comes into existence.
+ticketsRouter.post('/', requireAuth, async (req, res) => {
+  const parsed = createTicketSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  const { subject, body } = parsed.data
+  const requesterName = req.user!.name ?? req.user!.email
+  const requesterEmail = req.user!.email
+
+  const ticket = await prisma.ticket.create({
+    data: {
+      subject,
+      requesterEmail,
+      messages: { create: { fromEmail: requesterEmail, senderName: requesterName, body } },
+    },
+  })
+
+  await enqueueClassifyTicket(ticket.id, body)
+  await enqueueAutoResolveTicket(ticket.id, body, requesterName)
+
+  res.status(201).json({ ticket })
+})
+
+const polishDescriptionSchema = z.object({ body: z.string().trim().min(1, 'Description cannot be empty') })
+
+// requireAuth only, matching the other ticket routes — any logged-in user
+// drafting a ticket can polish its description before submitting. Never
+// persists anything itself, same as the reply-polish endpoint.
+ticketsRouter.post('/polish-description', requireAuth, async (req, res) => {
+  const parsed = polishDescriptionSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not configured')
+    res.status(500).json({ status: 'error', message: 'AI polishing is not configured' })
+    return
+  }
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system:
+      'You polish draft support ticket descriptions written by the person ' +
+      'submitting the ticket. Improve grammar, clarity, and tone while ' +
+      "preserving the description's meaning and facts exactly — don't add " +
+      "new claims, promises, or information. Respond with only the " +
+      'improved description text, no preamble or commentary.',
+    prompt: parsed.data.body,
+  })
+
+  res.json({ polished: text })
+})
+
+const generateSubjectSchema = z.object({ body: z.string().trim().min(1, 'Description cannot be empty') })
+
+// requireAuth only, matching the other ticket routes — lets a user generate
+// a subject line from the description they've already written, instead of
+// writing one themselves. Never persists anything itself.
+ticketsRouter.post('/generate-subject', requireAuth, async (req, res) => {
+  const parsed = generateSubjectSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    res.status(400).json({ status: 'error', message: parsed.error.issues[0].message })
+    return
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is not configured')
+    res.status(500).json({ status: 'error', message: 'AI generation is not configured' })
+    return
+  }
+
+  const { text } = await generateText({
+    model: openai('gpt-5-nano'),
+    system:
+      "You write short, clear support ticket subject lines from a " +
+      "customer's description of their issue. Summarize the core issue " +
+      'in a few words — specific and professional, never generic like ' +
+      '"Help" or "Question". Respond with only the subject line, no ' +
+      'quotes, no preamble or commentary.',
+    prompt: parsed.data.body,
+  })
+
+  res.json({ subject: text })
+})
+
+// Declared before GET /:id so 'mine' isn't captured as an :id value,
+// matching GET /agents below. Lists only the logged-in user's own
+// submitted tickets — just enough to identify and open one, not the
+// AI/agent response, which lives on the ticket detail page instead.
+ticketsRouter.get('/mine', requireAuth, async (req, res) => {
+  const tickets = await prisma.ticket.findMany({
+    where: { requesterEmail: req.user!.email },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      subject: true,
+      status: true,
+      category: true,
+      createdAt: true,
+    },
+  })
+
+  res.json({ tickets })
 })
 
 // Declared before GET /:id so 'agents' isn't captured as an :id value.

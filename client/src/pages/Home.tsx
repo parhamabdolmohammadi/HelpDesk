@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { Clock, Percent, Sparkles, Ticket, TicketCheck } from 'lucide-react'
+import { MyTicketsList } from '../components/MyTicketsList'
 import { NavBar } from '../components/NavBar'
+import { SubmitTicketCard } from '../components/SubmitTicketCard'
 import { TicketsOverTimeChart } from '../components/TicketsOverTimeChart'
 import { useSession } from '../lib/auth-client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -128,6 +130,14 @@ export function Home() {
               <TicketsOverTimeChart dailyTicketCounts={data.dailyTicketCounts} />
             </div>
           )}
+
+          <div className="mt-4">
+            <SubmitTicketCard />
+          </div>
+
+          <div className="mt-4">
+            <MyTicketsList />
+          </div>
         </div>
       </main>
     </div>
