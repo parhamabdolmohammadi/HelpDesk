@@ -319,3 +319,13 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 5 - Summarizing Tickets
 
 - add the ability to summarize a ticket add a summarize button with sparkles icon below the message and re-generate the summary each time
+  
+6- Classifying tickets
+
+- automatically classify tickets using gpt. do it in a non-blocking fashion
+
+- create a new ticket hitting /inbound-email endpoint to create a new ticket asking question about postgres
+
+- Create a Ticket asking how to get a refund for a course
+
+- create a new ticket how to change password
