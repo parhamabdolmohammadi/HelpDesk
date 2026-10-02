@@ -12,6 +12,7 @@ import { ticketsRouter } from './routes/tickets.ts'
 import { trustedOrigins } from './trustedOrigins.ts'
 import { boss } from './queue.ts'
 import { registerClassifyTicketWorker } from './jobs/classifyTicket.ts'
+import { registerAutoResolveTicketWorker } from './jobs/autoResolveTicket.ts'
 
 const app = express()
 const port = process.env.PORT ?? 4000
@@ -72,6 +73,7 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 await boss.start()
 await registerClassifyTicketWorker()
+await registerAutoResolveTicketWorker()
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`)

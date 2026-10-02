@@ -8,6 +8,7 @@ import { prisma } from '../db.ts'
 import { requireAuth } from '../middleware/requireAuth.ts'
 import { requireInboundEmailSecret } from '../middleware/requireInboundEmailSecret.ts'
 import { enqueueClassifyTicket } from '../jobs/classifyTicket.ts'
+import { enqueueAutoResolveTicket } from '../jobs/autoResolveTicket.ts'
 
 export const ticketsRouter = Router()
 
@@ -319,7 +320,7 @@ ticketsRouter.post('/:id/summarize', requireAuth, async (req: Request<{ id: stri
   const thread = [
     ...ticket.messages.map((message) => ({ from: message.senderName, body: message.body, at: message.createdAt })),
     ...ticket.replies.map((reply) => ({
-      from: reply.author.name ?? reply.author.email,
+      from: reply.isAiGenerated ? 'Support Team (AI)' : reply.author!.name ?? reply.author!.email,
       body: reply.body,
       at: reply.createdAt,
     })),
@@ -413,10 +414,13 @@ ticketsRouter.post('/inbound-email', requireInboundEmailSecret, async (req, res)
     },
   })
 
-  // Enqueuing is just a fast insert — classification itself runs later in
-  // the pg-boss worker (see jobs/classifyTicket.ts), so the webhook caller
-  // isn't kept waiting on the AI call.
+  // Enqueuing is just a fast insert — classification and auto-resolution
+  // themselves run later in their pg-boss workers (see jobs/classifyTicket.ts
+  // and jobs/autoResolveTicket.ts), so the webhook caller isn't kept waiting
+  // on either AI call. Only fires for a brand-new ticket, not a message
+  // appended to an existing open one.
   await enqueueClassifyTicket(ticket.id, text)
+  await enqueueAutoResolveTicket(ticket.id, text, senderName)
 
   res.status(201).json({ ticket: { id: ticket.id }, appendedToExistingTicket: false })
 })

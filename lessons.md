@@ -336,3 +336,15 @@ in the users table, add a edit button  with an icon to each row. when clicked, s
 
 - hit the webhook to create a new ticket asking a general question
 
+10 - Auto Resolving Tickets
+
+- Add the ability to auto resolve tickets upon arrival using a knowledge base file @knowledge-base.md
+
+don't show tickets being resolved by ai on the list
+
+- create a ticket via the webhook that can be answered from the knowledge base
+
+- When creating a reply, address the customer by first name. sign the email with Parham Abdo Support and make sure the reply has a professional and custumer friendly tone and properly formatted
+
+- Now create another ticket that the response is not in knowledge base
+

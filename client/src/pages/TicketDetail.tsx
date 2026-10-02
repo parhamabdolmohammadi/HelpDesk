@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { NavBar } from "../components/NavBar";
 import { TicketAssigneeSelect } from "../components/TicketAssigneeSelect";
 import { TicketCategorySelect } from "../components/TicketCategorySelect";
@@ -24,8 +24,9 @@ type TicketReply = {
   id: string;
   body: string;
   createdAt: string;
-  senderType: "ADMIN" | "AGENT";
-  author: { id: string; name: string | null; email: string };
+  senderType: "ADMIN" | "AGENT" | null;
+  author: { id: string; name: string | null; email: string } | null;
+  isAiGenerated: boolean;
 };
 
 type TicketDetail = {
@@ -161,17 +162,27 @@ export function TicketDetail() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <p className="text-sm text-muted-foreground">
-                                From {reply.author.name ?? reply.author.email}
+                                From{" "}
+                                {reply.isAiGenerated
+                                  ? "Support Team"
+                                  : (reply.author?.name ?? reply.author?.email)}
                               </p>
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  reply.senderType === "ADMIN"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                {reply.senderType}
-                              </span>
+                              {reply.isAiGenerated ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                                  <Sparkles className="h-3 w-3" />
+                                  AI SUPPORT TEAM
+                                </span>
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    reply.senderType === "ADMIN"
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  {reply.senderType}
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs text-muted-foreground">
                               {new Date(reply.createdAt).toLocaleString()}
