@@ -88,6 +88,81 @@ ticketsRouter.get('/agents', requireAuth, async (_req, res) => {
   res.json({ agents })
 })
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+// The dashboard's bar chart covers a 30-day window that normally ends today.
+// But in a quiet period — no ticket created in the last 10 days — ending at
+// today would mostly show empty days with no data at all, so the window
+// instead ends on the most recent ticket's date, covering the 30 days
+// leading up to the last real activity.
+function resolveChartWindow(lastTicketCreatedAt: Date | null): { start: Date; end: Date } {
+  const now = new Date()
+  const tenDaysAgo = new Date(now.getTime() - 10 * DAY_MS)
+
+  const endAnchor = lastTicketCreatedAt && lastTicketCreatedAt < tenDaysAgo ? lastTicketCreatedAt : now
+
+  const end = new Date(
+    Date.UTC(endAnchor.getUTCFullYear(), endAnchor.getUTCMonth(), endAnchor.getUTCDate(), 23, 59, 59, 999),
+  )
+  const start = new Date(end.getTime() - 29 * DAY_MS)
+  const rangeStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()))
+
+  return { start: rangeStart, end }
+}
+
+// Declared before GET /:id so 'stats' isn't captured as an :id value,
+// matching GET /agents above. Backs the dashboard page.
+ticketsRouter.get('/stats', requireAuth, async (_req, res) => {
+  const lastTicket = await prisma.ticket.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+  const { start, end } = resolveChartWindow(lastTicket?.createdAt ?? null)
+
+  const [totalTickets, openTickets, autoResolvedTickets, resolvedTickets, ticketsInWindow] = await prisma.$transaction([
+    prisma.ticket.count(),
+    prisma.ticket.count({ where: { status: 'OPEN' } }),
+    prisma.ticket.count({ where: { autoResolved: true } }),
+    // Only resolvedAt is needed to compute resolution time — not the whole
+    // row — since the average is calculated here rather than in SQL.
+    prisma.ticket.findMany({
+      where: { resolvedAt: { not: null } },
+      select: { createdAt: true, resolvedAt: true },
+    }),
+    prisma.ticket.findMany({
+      where: { createdAt: { gte: start, lte: end } },
+      select: { createdAt: true },
+    }),
+  ])
+
+  const averageResolutionMs =
+    resolvedTickets.length > 0
+      ? resolvedTickets.reduce((sum, t) => sum + (t.resolvedAt!.getTime() - t.createdAt.getTime()), 0) /
+        resolvedTickets.length
+      : null
+
+  const countsByDate = new Map<string, number>()
+  for (const ticket of ticketsInWindow) {
+    const key = dateKey(ticket.createdAt)
+    countsByDate.set(key, (countsByDate.get(key) ?? 0) + 1)
+  }
+
+  const dailyTicketCounts = Array.from({ length: 30 }, (_, i) => {
+    const date = dateKey(new Date(start.getTime() + i * DAY_MS))
+    return { date, count: countsByDate.get(date) ?? 0 }
+  })
+
+  res.json({
+    totalTickets,
+    openTickets,
+    autoResolvedTickets,
+    percentAutoResolved: totalTickets > 0 ? (autoResolvedTickets / totalTickets) * 100 : 0,
+    averageResolutionMs,
+    dailyTicketCounts,
+  })
+})
+
 // requireAuth only, matching GET / above — any logged-in user can view a
 // ticket's details, not just admins.
 ticketsRouter.get('/:id', requireAuth, async (req: Request<{ id: string }>, res: Response) => {
@@ -146,7 +221,12 @@ ticketsRouter.patch('/:id', requireAuth, async (req: Request<{ id: string }>, re
   const updated = await prisma.ticket.update({
     where: { id: req.params.id },
     data: {
-      ...(status !== undefined && { status }),
+      // resolvedAt tracks exactly when status became RESOLVED (for the
+      // dashboard's average resolution time) — set on the way in, cleared
+      // if the ticket is moved to a different status afterward, since
+      // updatedAt alone can't distinguish "just resolved" from any other
+      // later edit (assignee, category, a new reply).
+      ...(status !== undefined && { status, resolvedAt: status === 'RESOLVED' ? new Date() : null }),
       ...(category !== undefined && { category }),
     },
     include: { assignee: { select: { id: true, name: true, email: true } } },

@@ -59,10 +59,15 @@ model Ticket {
 
   // Set by the auto-resolve job (see jobs/autoResolveTicket.ts) when it
   // answers a ticket from the knowledge base and resolves it without a
-  // human agent. The ticket list excludes these by default, so an
-  // auto-resolved ticket doesn't clutter the queue of tickets an agent
-  // still needs to look at — it's still reachable at its direct URL.
+  // human agent. Drives the dashboard's "resolved by AI" stats.
   autoResolved   Boolean         @default(false)
+  // Set whenever status transitions to RESOLVED (by a human via PATCH /:id,
+  // or by the auto-resolve job) and cleared if it's moved away from
+  // RESOLVED again — a dedicated timestamp rather than reusing updatedAt,
+  // since updatedAt also changes for unrelated edits (assignee, category,
+  // a new reply) made after resolution. The dashboard's average resolution
+  // time is computed from this minus createdAt.
+  resolvedAt     DateTime?
 
   messages       TicketMessage[]
   replies        TicketReply[]

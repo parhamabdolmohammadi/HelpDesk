@@ -348,3 +348,14 @@ don't show tickets being resolved by ai on the list
 
 - Now create another ticket that the response is not in knowledge base
 
+12 - Building Dashboard
+
+- Build a dashboard and display:
+
+  -total tickets
+  -open tickets
+  - number of tickets resolved by AI
+  - % of tickets resolved by AI
+  - Average Resolution time
+
+-  below the metrics add a bar chart showing the total number of tickets over the past 30 days if we dont have any active ticket for last 10 days start the 30 days from the last generated ticket

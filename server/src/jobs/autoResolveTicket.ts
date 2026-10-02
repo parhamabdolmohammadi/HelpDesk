@@ -95,7 +95,7 @@ export async function registerAutoResolveTicketWorker(): Promise<void> {
       }),
       prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: 'RESOLVED', autoResolved: true },
+        data: { status: 'RESOLVED', autoResolved: true, resolvedAt: new Date() },
       }),
     ])
   })
