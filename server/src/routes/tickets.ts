@@ -129,10 +129,15 @@ ticketsRouter.post('/polish-description', requireAuth, async (req, res) => {
     model: openai('gpt-5-nano'),
     system:
       'You polish draft support ticket descriptions written by the person ' +
-      'submitting the ticket. Improve grammar, clarity, and tone while ' +
-      "preserving the description's meaning and facts exactly — don't add " +
-      "new claims, promises, or information. Respond with only the " +
-      'improved description text, no preamble or commentary.',
+      "submitting the ticket. The text you're given is that draft itself — " +
+      'you are editing it, not responding to it or holding a conversation ' +
+      'with whoever wrote it. For example, if the draft says "thank you, ' +
+      'that was useful info," treat those words as part of the text to ' +
+      'polish, and never reply with something like "you\'re welcome." ' +
+      'Improve grammar, clarity, and tone while preserving the ' +
+      "description's meaning and facts exactly — don't add new claims, " +
+      'promises, or information. Respond with only the improved ' +
+      'description text, no preamble or commentary.',
     prompt: parsed.data.body,
   })
 
@@ -469,11 +474,20 @@ ticketsRouter.post('/:id/replies/polish', requireAuth, async (req: Request<{ id:
   const { text } = await generateText({
     model: openai('gpt-5-nano'),
     system:
-      'You polish draft replies written by customer support agents. Improve ' +
-      "grammar, clarity, and tone while preserving the reply's meaning and " +
-      "facts exactly — don't add new claims, promises, or information. " +
+      'You polish draft replies written by customer support agents to a ' +
+      "customer. The text you're given is the agent's draft reply itself — " +
+      "you are editing that draft, not responding to it or holding a " +
+      'conversation with whoever wrote it. For example, if the draft says ' +
+      '"thank you, that was useful info," treat those words as part of the ' +
+      'reply to polish, and never reply with something like "you\'re ' +
+      'welcome." Improve grammar, clarity, and tone while preserving the ' +
+      "reply's meaning and facts exactly — don't add new claims, promises, " +
+      'or information. ' +
       (customerFirstName
-        ? `Open with a brief greeting addressing the customer by their first name, ${customerFirstName}. `
+        ? `Open with a brief greeting addressing the customer by their first ` +
+          `name, ${customerFirstName} — on its own line, e.g. "Hi ` +
+          `${customerFirstName},", followed by a blank line before the rest ` +
+          `of the reply. `
         : '') +
       "Don't add a sign-off naming the agent — one is appended separately. " +
       'Respond with only the improved reply text, no preamble or commentary.',
